@@ -39,9 +39,6 @@ import md5
 NAME="rss.linuxoid.in"
 PORT="5555"
 HOST="192.168.220.250"
-#NAME="weather.jrudevels.org"
-#PORT="8880"
-#HOST="127.0.0.1"
 PASSWORD="superpassword"
 
 DB_HOST="192.168.220.252"
