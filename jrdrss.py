@@ -33,16 +33,21 @@ import pyxmpp.jabberd.all
 import pyxmpp.jabber.all
 import pyxmpp.all
 
-import pgdb
+import MySQLdb
 import md5
 
-NAME="mail.dur-dom.net"
-PORT="8888"
-HOST="192.168.1.1"
+NAME="rss.linuxoid.in"
+PORT="5555"
+HOST="192.168.220.250"
 #NAME="weather.jrudevels.org"
 #PORT="8880"
 #HOST="127.0.0.1"
-PASSWORD="fgjcnjvskj"
+PASSWORD="superpassword"
+
+DB_HOST="192.168.220.252"
+DB_USER="dbuser"
+DB_PASS="superpassword"
+DB_NAME="jrdrss"
 
 programmVersion="0.1.1"
 
@@ -51,11 +56,15 @@ class Component(pyxmpp.jabberd.Component):
     last_upd=0
     name=NAME
     onliners=[]
-    db=pgdb.connect(host="dur-dom.net",user="j2j",password="qaswed",database="pyrss")
+    db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
     dbCur=db.cursor()
 
-    def dbQuote(self,string):
-        return string.replace("\\","\\\\").replace("'","\\'")
+    def dbQuote(self, string):
+	if string is None:
+		return ""
+	else:
+		return MySQLdb.escape_string(string)
+#	return string.replace("\\","\\\\").replace("'","\\'")
 
     def isFeedNameRegistered(self, feedname):
         self.dbCur.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname).encode("utf-8"))
@@ -249,9 +258,9 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCur.execute("SELECT feedname,description,url,subscribers from feeds WHERE feedname ILIKE '%s'" % self.dbQuote(searchField))
+        self.dbCur.execute("SELECT feedname,description,url,subscribers from feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField))
         a=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname,description,url,subscribers from feeds WHERE description ILIKE '%s'" % self.dbQuote(searchField))
+        self.dbCur.execute("SELECT feedname,description,url,subscribers from feeds WHERE description LIKE '%s'" % self.dbQuote(searchField))
         b=self.dbCur.fetchall()
         feednames=[]
         c=[]
@@ -320,7 +329,7 @@ class Component(pyxmpp.jabberd.Component):
 
     def idle(self):
         nowTime=int(time.time())
-        if (nowTime-self.last_upd)>3600:
+        if (nowTime-self.last_upd)>300:
             print "idle"
             self.last_upd=nowTime
             thread.start_new_thread(self.checkrss,())
