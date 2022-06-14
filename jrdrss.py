@@ -19,6 +19,10 @@ import feedparser
 import re
 import urlparse
 
+# https://stackoverflow.com/questions/3828723/why-should-we-not-use-sys-setdefaultencodingutf-8-in-a-py-script
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
 from pyxmpp.jid import JID
 from pyxmpp.all import Iq
 from pyxmpp.all import Presence
@@ -36,7 +40,7 @@ import pyxmpp.all
 import MySQLdb
 import md5
 
-NAME="rss.linuxoid.in"
+NAME="j2j.linuxoid.in"
 PORT="5555"
 HOST="192.168.220.250"
 PASSWORD="superpassword"
@@ -45,6 +49,8 @@ DB_HOST="192.168.220.252"
 DB_USER="dbuser"
 DB_PASS="superpassword"
 DB_NAME="jrdrss"
+
+INTERVAL=300 # feed update interval
 
 programmVersion="0.1.1"
 
@@ -64,7 +70,7 @@ class Component(pyxmpp.jabberd.Component):
 #	return string.replace("\\","\\\\").replace("'","\\'")
 
     def isFeedNameRegistered(self, feedname):
-        self.dbCur.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname).encode("utf-8"))
+        self.dbCur.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname))
         a=self.dbCur.fetchone()
         if not a:
             return False
@@ -74,7 +80,7 @@ class Component(pyxmpp.jabberd.Component):
             return True
 
     def isFeedUrlRegistered(self, furl):
-        self.dbCur.execute("SELECT count(*) FROM feeds WHERE url='%s'" % self.dbQuote(furl).encode("utf-8"))
+        self.dbCur.execute("SELECT count(*) FROM feeds WHERE url='%s'" % self.dbQuote(furl))
         a=self.dbCur.fetchone()
         if not a:
             return False
@@ -167,7 +173,7 @@ class Component(pyxmpp.jabberd.Component):
         else:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        if fname=='' or furl=='' or fdesc=='' or fname.find("@")!=-1 or fname.find(" ")!=-1 or fname.find("'")!=-1 or fname.find("/")!=-1 or fname.find("\\")!=-1 or furl.find("http://")!=0:
+        if fname=='' or furl=='' or fdesc=='' or fname.find("@")!=-1 or fname.find(" ")!=-1 or fname.find("'")!=-1 or fname.find("/")!=-1 or fname.find("\\")!=-1 or (furl.find("http://")!=0 and furl.find("https://")!=0):
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
         domain=urlparse.urlparse(furl)[1]
@@ -201,9 +207,9 @@ class Component(pyxmpp.jabberd.Component):
         vsubs=0
         if fsubs:
             vsubs=1
-        self.dbCur.execute("INSERT INTO feeds (feedname,url,description,subscribers) VALUES ('%s','%s','%s',%s)" % (self.dbQuote(fname).encode("utf-8"),self.dbQuote(furl).encode("utf-8"),self.dbQuote(fdesc).encode("utf-8"),vsubs))
+        self.dbCur.execute("INSERT INTO feeds (feedname,url,description,subscribers) VALUES ('%s','%s','%s',%s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")),vsubs))
         if fsubs:
-            self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname).encode("utf-8")))
+            self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname.encode("utf-8"))))
         self.db.commit()
         self.stream.send(iqres)
         if fsubs:
@@ -255,16 +261,22 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCur.execute("SELECT feedname,description,url,subscribers from feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers FROM feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
         a=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname,description,url,subscribers from feeds WHERE description LIKE '%s'" % self.dbQuote(searchField))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers FROM feeds WHERE description LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
         b=self.dbCur.fetchall()
+        self.dbCur.execute("SELECT feedname, description, url, subscribers FROM feeds WHERE url LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        u=self.dbCur.fetchall()
         feednames=[]
         c=[]
         for x in a:
             feednames.append(x[0])
             c.append(x)
         for x in b:
+            if not x[0] in feednames:
+                feednames.append(x[0])
+                c.append(x)
+        for x in u:
             if not x[0] in feednames:
                 feednames.append(x[0])
                 c.append(x)
@@ -326,7 +338,7 @@ class Component(pyxmpp.jabberd.Component):
 
     def idle(self):
         nowTime=int(time.time())
-        if (nowTime-self.last_upd)>300:
+        if (nowTime-self.last_upd)>INTERVAL:
             print "idle"
             self.last_upd=nowTime
             thread.start_new_thread(self.checkrss,())
@@ -386,7 +398,7 @@ class Component(pyxmpp.jabberd.Component):
                 summary=re.sub('<[^>]*>','',summary)
             m=Message(to_jid=JID(unicode(ii[0],"utf-8")),
                 from_jid=feedname+"@"+self.name,
-                stanza_type="headline",
+                stanza_type="chat", # was headline
                 subject=i["title"],
                 body=summary)
             oob=m.add_new_content("jabber:x:oob","x")
