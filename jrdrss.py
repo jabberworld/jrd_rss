@@ -261,11 +261,11 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCur.execute("SELECT feedname, description, url, subscribers FROM feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
         a=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname, description, url, subscribers FROM feeds WHERE description LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE description LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
         b=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname, description, url, subscribers FROM feeds WHERE url LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE url LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
         u=self.dbCur.fetchall()
         feednames=[]
         c=[]
@@ -305,8 +305,12 @@ class Component(pyxmpp.jabberd.Component):
         reportedDesc.setProp("type","text-single")
         reportedSubs=reported.newChild(None,"field",None)
         reportedSubs.setProp("var","subscribers")
-        reportedSubs.setProp("type","text=single")
-        reportedSubs.setProp("label","Number of subscribers")
+        reportedSubs.setProp("type","text-single")
+        reportedSubs.setProp("label","Users")
+        reportedTime=reported.newChild(None,"field",None)
+        reportedTime.setProp("var","timeout")
+        reportedTime.setProp("type","text-single")
+        reportedTime.setProp("label","Update interval")
         for d in c:
             item=form.newChild(None,"item",None)
             jidField=item.newChild(None,"field",None)
@@ -321,6 +325,9 @@ class Component(pyxmpp.jabberd.Component):
             sbsField=item.newChild(None,"field",None)
             sbsField.setProp("var","subscribers")
             sbsField.newTextChild(None,"value",str(d[3]))
+            timeField=item.newChild(None,"field",None)
+            timeField.setProp("var","timeout")
+            timeField.newTextChild(None,"value",str(d[4]))
         self.stream.send(iq)
         return 1
 
