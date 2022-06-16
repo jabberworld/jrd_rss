@@ -170,6 +170,7 @@ class Component(pyxmpp.jabberd.Component):
             topt=tmup.newChild(None, "option", None)
             topt.setProp("label", t)
             topt.newChild(None, "value", t)
+
         self.stream.send(iq)
 
     def set_register(self,iq):
@@ -181,6 +182,7 @@ class Component(pyxmpp.jabberd.Component):
         furl=iq.xpath_eval("//r:field[@var='url']/r:value",{"r":"jabber:x:data"})
         fdesc=iq.xpath_eval("//r:field[@var='desc']/r:value",{"r":"jabber:x:data"})
         fsubs=iq.xpath_eval("//r:field[@var='tosubscribe']/r:value",{"r":"jabber:x:data"})
+        ftime=iq.xpath_eval("//r:field[@var='timeout']/r:value",{"r":"jabber:x:data"})
         if fname and furl and fdesc:
             fname=unicode(fname[0].getContent(),"utf-8").lower()
             furl=unicode(furl[0].getContent(),"utf-8")
@@ -201,15 +203,17 @@ class Component(pyxmpp.jabberd.Component):
                 fsubs=False
         else:
             fsubs=False
+        if ftime:
+            ftime=int(ftime[0].getContent())
         if self.isFeedNameRegistered(fname):
             self.stream.send(iq.make_error_response("conflict"))
             return
         if self.isFeedUrlRegistered(furl):
             self.stream.send(iq.make_error_response("conflict"))
             return
-        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,))
+        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime))
 
-    def regThread(self,iqres,iqerr,fname,furl,fdesc,fsubs):
+    def regThread(self, iqres, iqerr, fname, furl, fdesc, fsubs, ftime):
         try:
             d=feedparser.parse(furl)
             bozo=d["bozo"]
@@ -222,7 +226,10 @@ class Component(pyxmpp.jabberd.Component):
         vsubs=0
         if fsubs:
             vsubs=1
-        self.dbCur.execute("INSERT INTO feeds (feedname,url,description,subscribers) VALUES ('%s','%s','%s',%s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")),vsubs))
+        ftime=ftime*60
+        if ftime<60:
+            ftime=60
+        self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")), vsubs, ftime))
         if fsubs:
             self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname.encode("utf-8"))))
         self.db.commit()
