@@ -60,6 +60,7 @@ class Component(pyxmpp.jabberd.Component):
     name=NAME
     onliners=[]
     db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
+    db.ping(True)
     dbCur=db.cursor()
 
     def dbQuote(self, string):
