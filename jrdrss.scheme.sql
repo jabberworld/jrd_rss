@@ -2,7 +2,9 @@ CREATE TABLE IF NOT EXISTS feeds (
 feedname varchar(255) NOT NULL,
 url varchar(255) NOT NULL,
 description varchar(255) NOT NULL,
-subscribers integer NOT NULL
+subscribers INT NOT NULL DEFAULT 0,
+timeout INT NOT NULL DEFAULT 3600,
+regdate TIMESTAMP NOT NULL DEFAULT NOW()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE utf8_unicode_ci;
 
 # https://stackoverflow.com/questions/6800866/how-to-store-urls-in-mysql
