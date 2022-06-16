@@ -50,18 +50,18 @@ DB_USER="dbuser"
 DB_PASS="superpassword"
 DB_NAME="jrdrss"
 
-INTERVAL=300 # feed update interval
-
 programmVersion="0.1.1"
 
 class Component(pyxmpp.jabberd.Component):
     start_time=int(time.time())
-    last_upd=0
+    last_upd={}
     name=NAME
     onliners=[]
     db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
     db.ping(True)
     dbCur=db.cursor()
+    dbCur.execute("SELECT feedname, url, timeout FROM feeds")
+    dbfeeds=dbCur.fetchall()
 
     def dbQuote(self, string):
 	if string is None:
@@ -212,7 +212,7 @@ class Component(pyxmpp.jabberd.Component):
         if self.isFeedUrlRegistered(furl):
             self.stream.send(iq.make_error_response("conflict"))
             return
-        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime))
+        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime,))
 
     def regThread(self, iqres, iqerr, fname, furl, fdesc, fsubs, ftime):
         try:
@@ -231,6 +231,9 @@ class Component(pyxmpp.jabberd.Component):
         if ftime<60:
             ftime=60
         self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")), vsubs, ftime))
+        self.last_upd[fname.encode("utf-8")] = 0
+        self.dbCur.execute("SELECT feedname, url, timeout FROM feeds")
+        self.dbfeeds=self.dbCur.fetchall()
         if fsubs:
             self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname.encode("utf-8"))))
         self.db.commit()
@@ -368,20 +371,28 @@ class Component(pyxmpp.jabberd.Component):
 
     def idle(self):
         nowTime=int(time.time())
-        if (nowTime-self.last_upd)>INTERVAL:
-            print "idle"
-            self.last_upd=nowTime
-            thread.start_new_thread(self.checkrss,())
+        print "idle"
+        checkfeeds=[]
+        for feed in self.dbfeeds:
+            try:
+                if (nowTime-int(self.last_upd[feed[0]])) > int(feed[2]):
+                    self.last_upd[feed[0]]=nowTime
+                    checkfeeds.append((feed[0], feed[1],))
+            except:
+                self.last_upd[feed[0]]=nowTime
+        if checkfeeds:
+            print "UPDATE:",
+            print checkfeeds
+            thread.start_new_thread(self.checkrss,(checkfeeds,))
 
-    def checkrss(self):
-        self.dbCur.execute("SELECT feedname,url FROM feeds")
-        feeds=self.dbCur.fetchall()
-        for feed in feeds:
+    def checkrss(self, checkfeeds):
+        for feed in checkfeeds:
             self.dbCur.execute("SELECT jid FROM subscribers WHERE feedname='%s'" % (self.dbQuote(feed[0])))
             jids=self.dbCur.fetchall()
             if len(jids)==0:
                 continue
             try:
+                print "FETCHING",
                 print feed[1]
                 d=feedparser.parse(feed[1])
                 bozo=d["bozo"]
@@ -395,15 +406,16 @@ class Component(pyxmpp.jabberd.Component):
                 md5sum=md5.md5(unicode(i).encode("utf-8")).hexdigest()
                 feedname=unicode(feed[0],"utf-8")
                 if not self.isSent(feedname, md5sum):
-                    self.makeSent(feedname,md5sum)
+                    self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
+                    sleep(0.1)
                 else:
                     pass
                 self.dbCur.execute("UPDATE sent SET received=TRUE WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]),self.dbQuote(md5sum)))
                 self.db.commit()
             self.dbCur.execute("DELETE FROM sent WHERE feedname='%s' AND received=FALSE" % self.dbQuote(feed[0]))
             self.db.commit()
-        print "end idle"
+            print "end idle"
 
     def makeSent(self,feedname,md5sum):
         self.dbCur.execute("INSERT INTO sent (feedname,md5,datetime) VALUES ('%s','%s',now())" % (self.dbQuote(feedname).encode("utf-8"),self.dbQuote(md5sum)))
