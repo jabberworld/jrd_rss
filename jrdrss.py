@@ -135,26 +135,41 @@ class Component(pyxmpp.jabberd.Component):
         form.setProp("xmlns","jabber:x:data")
         form.setProp("type","form")
         form.newTextChild(None,"title","New RSS feed registration")
+
         fname=form.newChild(None,"field",None)
         fname.setProp("type","text-single")
         fname.setProp("var","feedname")
         fname.setProp("label","Feed's name")
         fname.newChild(None,"required",None)
+
         url=form.newChild(None,"field",None)
         url.setProp("type","text-single")
         url.setProp("var","url")
         url.setProp("label","URL")
         url.newChild(None,"required",None)
+
         desc=form.newChild(None,"field",None)
         desc.setProp("type","text-single")
         desc.setProp("var","desc")
         desc.setProp("label","Description")
         desc.newChild(None,"required",None)
+
         checkBox=form.newChild(None,"field",None)
         checkBox.setProp("type","boolean")
         checkBox.setProp("var","tosubscribe")
         checkBox.setProp("label","Subscribe")
         value=checkBox.newTextChild(None,"value","1")
+
+# https://xmpp.org/extensions/xep-0004.html
+        tmup=form.newChild(None, "field", None)
+        tmup.setProp("type", "list-single")
+        tmup.setProp("var", "timeout")
+        tmup.setProp("label", "Refresh interval, min")
+        tmup.newChild(None, "value", "60")
+        for t in ['1', '2', '5', '10', '15', '30', '60', '120', '240', '300', '600', '900', '1440']:
+            topt=tmup.newChild(None, "option", None)
+            topt.setProp("label", t)
+            topt.newChild(None, "value", t)
         self.stream.send(iq)
 
     def set_register(self,iq):
