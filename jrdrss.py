@@ -342,7 +342,7 @@ class Component(pyxmpp.jabberd.Component):
             sbsField.newTextChild(None,"value",str(d[3]))
             timeField=item.newChild(None,"field",None)
             timeField.setProp("var","timeout")
-            timeField.newTextChild(None,"value",str(d[4]))
+            timeField.newTextChild(None,"value",str(d[4]/60))
         self.stream.send(iq)
         return 1
 
