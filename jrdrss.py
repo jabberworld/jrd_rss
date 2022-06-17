@@ -1,7 +1,7 @@
 #!/usr/bin/python -u
 # -*- coding: UTF8 -*-
 #
-# JSMS          Python based Jabber weather transport.
+# JSMS          Python based Jabber RSS transport.
 # Copyright:    2007 Dobrov Sergery aka Binary from JRuDevels JID: Binary@JRuDevels.org
 # Licence:      GPL v3
 # Requirements:
@@ -50,7 +50,7 @@ DB_USER="dbuser"
 DB_PASS="superpassword"
 DB_NAME="jrdrss"
 
-programmVersion="0.1.1"
+programmVersion="0.2"
 
 class Component(pyxmpp.jabberd.Component):
     start_time=int(time.time())
@@ -64,11 +64,11 @@ class Component(pyxmpp.jabberd.Component):
     dbfeeds=dbCur.fetchall()
 
     def dbQuote(self, string):
-	if string is None:
-		return ""
-	else:
-		return MySQLdb.escape_string(string)
-#	return string.replace("\\","\\\\").replace("'","\\'")
+        if string is None:
+            return ""
+        else:
+            return MySQLdb.escape_string(string)
+#	    return string.replace("\\","\\\\").replace("'","\\'")
 
     def isFeedNameRegistered(self, feedname):
         self.dbCur.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname))
@@ -408,7 +408,7 @@ class Component(pyxmpp.jabberd.Component):
                 if not self.isSent(feedname, md5sum):
                     self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
-                    sleep(0.1)
+                    time.sleep(0.1)
                 else:
                     pass
                 self.dbCur.execute("UPDATE sent SET received=TRUE WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]),self.dbQuote(md5sum)))
@@ -437,6 +437,15 @@ class Component(pyxmpp.jabberd.Component):
                 summary=re.sub('<br ??/??>','\n',summary)
                 summary=re.sub('\n\n','\n',summary)
                 summary=summary.replace("&nbsp;"," ")
+                summary=summary.replace("&ndash;","–")
+                summary=summary.replace("&mdash;","—")
+                summary=summary.replace("&laquo;","«")
+                summary=summary.replace("&raquo;","»")
+                summary=summary.replace("&ldquo;","“")
+                summary=summary.replace("&rdquo;","”")
+                summary=summary.replace("&bdquo;","„")
+                summary=summary.replace("&lt;","<")
+                summary=summary.replace("&gt;",">")
                 summary=re.sub('<[^>]*>','',summary)
             m=Message(to_jid=JID(unicode(ii[0],"utf-8")),
                 from_jid=feedname+"@"+self.name,
@@ -457,9 +466,6 @@ class Component(pyxmpp.jabberd.Component):
             if not fr in self.onliners:
                 return None
             del self.onliners[self.onliners.index(fr)]
-                    #del self.weathers[weatherCode]['jids'][self.weathers[weatherCode]['jids'].index(fr)]
-                    #if self.weathers[weatherCode]['jids']=='':
-                        #del self.weathers[weatherCode]
             p=Presence(from_jid=stanza.get_to(),to_jid=stanza.get_from(),stanza_type="unavailable")
             self.stream.send(p)
         if stanza.get_type()=="available" or stanza.get_type()==None:
