@@ -3,9 +3,12 @@
 #
 # JSMS          Python based Jabber RSS transport.
 # Copyright:    2007 Dobrov Sergery aka Binary from JRuDevels JID: Binary@JRuDevels.org
+#               2022 rain from JabberWorld JID: rain@jabberworld.info
 # Licence:      GPL v3
 # Requirements:
-#               pyxmpp - http://jabberstudio.org/projects/pyxmpp/project/view.php
+#               python-pyxmpp - http://jabberstudio.org/projects/pyxmpp/project/view.php
+#               python-feedparser - https://github.com/kurtmckee/feedparser
+#               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
 
 import os
 import sys
@@ -20,6 +23,7 @@ import re
 import urlparse
 
 # https://stackoverflow.com/questions/3828723/why-should-we-not-use-sys-setdefaultencodingutf-8-in-a-py-script
+# TODO: remove this and add more encode()
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
@@ -62,6 +66,9 @@ class Component(pyxmpp.jabberd.Component):
     dbCur=db.cursor()
     dbCur.execute("SELECT feedname, url, timeout FROM feeds")
     dbfeeds=dbCur.fetchall()
+# TODO:
+# add reconnects and exceptions for _mysql_exceptions.OperationalError: (2006, 'MySQL server has gone away') + _mysql_exceptions.OperationalError: (2013, 'Lost connection to MySQL server during query')
+# https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 
     def dbQuote(self, string):
         if string is None:
@@ -444,6 +451,9 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&ldquo;","“")
                 summary=summary.replace("&rdquo;","”")
                 summary=summary.replace("&bdquo;","„")
+                summary=summary.replace("&rsquo;","’")
+                summary=summary.replace("&lsquo;","‘")
+                summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
                 summary=re.sub('<[^>]*>','',summary)
