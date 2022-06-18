@@ -2,8 +2,8 @@
 # -*- coding: UTF8 -*-
 #
 # JSMS          Python based Jabber RSS transport.
-# Copyright:    2007 Dobrov Sergery aka Binary from JRuDevels JID: Binary@JRuDevels.org
-#               2022 rain from JabberWorld JID: rain@jabberworld.info
+# Copyright:    2007 Dobrov Sergery aka Binary from JRuDevels. JID: Binary@JRuDevels.org
+#               2022 rain from JabberWorld. JID: rain@jabberworld.info
 # Licence:      GPL v3
 # Requirements:
 #               python-pyxmpp - https://github.com/Jajcus/pyxmpp
@@ -61,6 +61,7 @@ class Component(pyxmpp.jabberd.Component):
     last_upd={}
     name=NAME
     updating=0
+    idleflag=0
     onliners=[]
     db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
     db.ping(True)
@@ -372,8 +373,8 @@ class Component(pyxmpp.jabberd.Component):
         global programmVersion
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:version")
-        q.newTextChild(q.ns(),"name","Jabber RSS Transport (http://JRuDevels.org)")
-        q.newTextChild(q.ns(),"version",programmVersion)
+        q.newTextChild(q.ns(),"name", "Jabber RSS Transport (https://github.com/jabberworld/jrd_rss)")
+        q.newTextChild(q.ns(),"version", programmVersion)
         self.stream.send(iq)
         return 1
 
@@ -382,7 +383,9 @@ class Component(pyxmpp.jabberd.Component):
 
     def idle(self):
         nowTime=int(time.time())
-        print "idle"
+        if not self.idleflag:
+            print "idle"
+            self.idleflag=1
         checkfeeds=[]
         if not self.updating:
             for feed in self.dbfeeds:
@@ -393,6 +396,7 @@ class Component(pyxmpp.jabberd.Component):
                 except:
                     self.last_upd[feed[0]]=nowTime
             if checkfeeds:
+                self.idleflag=0
                 print "UPDATE:",
                 print checkfeeds
                 thread.start_new_thread(self.checkrss,(checkfeeds,))
