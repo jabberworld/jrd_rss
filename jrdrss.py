@@ -6,7 +6,7 @@
 #               2022 rain from JabberWorld JID: rain@jabberworld.info
 # Licence:      GPL v3
 # Requirements:
-#               python-pyxmpp - http://jabberstudio.org/projects/pyxmpp/project/view.php
+#               python-pyxmpp - https://github.com/Jajcus/pyxmpp
 #               python-feedparser - https://github.com/kurtmckee/feedparser
 #               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
 
@@ -60,6 +60,7 @@ class Component(pyxmpp.jabberd.Component):
     start_time=int(time.time())
     last_upd={}
     name=NAME
+    updating=0
     onliners=[]
     db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
     db.ping(True)
@@ -257,12 +258,15 @@ class Component(pyxmpp.jabberd.Component):
         q=iq.xmlnode.newChild(None,"vCard",None)
         q.setProp("xmlns","vcard-temp")
         if not description:
-            q.newTextChild(None,"NICKNAME","JRD RSS")
+            q.newTextChild(None,"FN","JRD RSS Transport")
+            q.newTextChild(None,"NICKNAME","RSS")
             q.newTextChild(None,"DESC","RSS transport component")
+            q.newTextChild(None,"BDAY","2008-03-19")
+            q.newTextChild(None,"ROLE","Создаю ботов для получения новостей через RSS")
         else:
             q.newTextChild(None,"NICKNAME",iq.get_from().node.encode("utf-8"))
             q.newTextChild(None,"DESC",description.encode("utf-8"))
-        q.newTextChild(None,"URL","http://JRuDevels.org")
+        q.newTextChild(None,"URL","https://github.com/jabberworld/jrd_rss")
         self.stream.send(iq)
         return 1
 
@@ -380,17 +384,21 @@ class Component(pyxmpp.jabberd.Component):
         nowTime=int(time.time())
         print "idle"
         checkfeeds=[]
-        for feed in self.dbfeeds:
-            try:
-                if (nowTime-int(self.last_upd[feed[0]])) > int(feed[2]):
+        if not self.updating:
+            for feed in self.dbfeeds:
+                try:
+                    if (nowTime-int(self.last_upd[feed[0]])) > int(feed[2]):
+                        self.last_upd[feed[0]]=nowTime
+                        checkfeeds.append((feed[0], feed[1],))
+                except:
                     self.last_upd[feed[0]]=nowTime
-                    checkfeeds.append((feed[0], feed[1],))
-            except:
-                self.last_upd[feed[0]]=nowTime
-        if checkfeeds:
-            print "UPDATE:",
-            print checkfeeds
-            thread.start_new_thread(self.checkrss,(checkfeeds,))
+            if checkfeeds:
+                print "UPDATE:",
+                print checkfeeds
+                thread.start_new_thread(self.checkrss,(checkfeeds,))
+                self.updating=1
+        else:
+            print "Update in progress"
 
     def checkrss(self, checkfeeds):
         for feed in checkfeeds:
@@ -422,7 +430,9 @@ class Component(pyxmpp.jabberd.Component):
                 self.db.commit()
             self.dbCur.execute("DELETE FROM sent WHERE feedname='%s' AND received=FALSE" % self.dbQuote(feed[0]))
             self.db.commit()
-            print "end idle"
+            print "end of update"
+        print "end of checkrss"
+        self.updating=0
 
     def makeSent(self,feedname,md5sum):
         self.dbCur.execute("INSERT INTO sent (feedname,md5,datetime) VALUES ('%s','%s',now())" % (self.dbQuote(feedname).encode("utf-8"),self.dbQuote(md5sum)))
