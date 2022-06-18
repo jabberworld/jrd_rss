@@ -1,7 +1,7 @@
 #!/usr/bin/python -u
 # -*- coding: UTF8 -*-
 #
-# JSMS          Python based Jabber RSS transport.
+# JRSS          Python based Jabber RSS transport.
 # Copyright:    2007 Dobrov Sergery aka Binary from JRuDevels. JID: Binary@JRuDevels.org
 #               2022 rain from JabberWorld. JID: rain@jabberworld.info
 # Licence:      GPL v3
@@ -422,7 +422,7 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
             self.db.commit()
             for i in d["items"]:
-                md5sum=md5.md5(unicode(i).encode("utf-8")).hexdigest()
+                md5sum=md5.md5(unicode(re.sub('sid=[0-9A-Za-z]+', '', str(i))).encode("utf-8")).hexdigest()
                 feedname=unicode(feed[0],"utf-8")
                 if not self.isSent(feedname, md5sum):
                     self.makeSent(feedname, md5sum)
