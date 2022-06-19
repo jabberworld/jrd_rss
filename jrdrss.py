@@ -44,15 +44,19 @@ import pyxmpp.all
 import MySQLdb
 import md5
 
-NAME="j2j.linuxoid.in"
-PORT="5555"
-HOST="192.168.220.250"
-PASSWORD="superpassword"
+config='config.xml'
 
-DB_HOST="192.168.220.252"
-DB_USER="dbuser"
-DB_PASS="superpassword"
-DB_NAME="jrdrss"
+dom = xml.dom.minidom.parse(config)
+
+DB_HOST = dom.getElementsByTagName("dbhost")[0].childNodes[0].data
+DB_USER =  dom.getElementsByTagName("dbuser")[0].childNodes[0].data
+DB_NAME =  dom.getElementsByTagName("dbname")[0].childNodes[0].data
+DB_PASS = dom.getElementsByTagName("dbpass")[0].childNodes[0].data
+
+NAME =  dom.getElementsByTagName("name")[0].childNodes[0].data
+HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
+PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
+PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
 programmVersion="0.2"
 
