@@ -70,7 +70,7 @@ class Component(pyxmpp.jabberd.Component):
     db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
     db.ping(True)
     dbCur=db.cursor()
-    dbCur.execute("SELECT feedname, url, timeout FROM feeds")
+    dbCur.execute("SELECT feedname, url, timeout, regdate, description FROM feeds")
     dbfeeds=dbCur.fetchall()
 # TODO:
 # add reconnects and exceptions for _mysql_exceptions.OperationalError: (2006, 'MySQL server has gone away') + _mysql_exceptions.OperationalError: (2013, 'Lost connection to MySQL server during query')
@@ -245,7 +245,7 @@ class Component(pyxmpp.jabberd.Component):
             ftime=60
         self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")), vsubs, ftime))
         self.last_upd[fname.encode("utf-8")] = 0
-        self.dbCur.execute("SELECT feedname, url, timeout FROM feeds")
+        self.dbCur.execute("SELECT feedname, url, timeout, regdate, description FROM feeds")
         self.dbfeeds=self.dbCur.fetchall()
         if fsubs:
             self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname.encode("utf-8"))))
@@ -258,20 +258,31 @@ class Component(pyxmpp.jabberd.Component):
     def get_vCard(self,iq):
         description=None
         if iq.get_to().as_utf8()!=self.name:
-            description=u"RSS Transport's feed. http://jrudevels.org" #TODO
+            feedvcard=1
+        else:
+            feedvcard=0
         iq=iq.make_result_response()
         q=iq.xmlnode.newChild(None,"vCard",None)
         q.setProp("xmlns","vcard-temp")
-        if not description:
+        if not feedvcard:
             q.newTextChild(None,"FN","JRD RSS Transport")
             q.newTextChild(None,"NICKNAME","RSS")
             q.newTextChild(None,"DESC","RSS transport component")
             q.newTextChild(None,"BDAY","2008-03-19")
             q.newTextChild(None,"ROLE","Создаю ботов для получения новостей через RSS")
+            q.newTextChild(None,"URL","https://github.com/jabberworld/jrd_rss")
         else:
-            q.newTextChild(None,"NICKNAME",iq.get_from().node.encode("utf-8"))
-            q.newTextChild(None,"DESC",description.encode("utf-8"))
-        q.newTextChild(None,"URL","https://github.com/jabberworld/jrd_rss")
+            nick=iq.get_from().node.encode("utf-8")
+            for feedstr in self.dbfeeds:
+                if feedstr[0] == nick:
+                    url = feedstr[1]
+                    bday = str(feedstr[3])
+                    description = str(feedstr[4]+".\nFeed update interval: "+str(feedstr[2]/60)+" mins")
+
+                    q.newTextChild(None,"NICKNAME", nick)
+                    q.newTextChild(None,"DESC", description.encode("utf-8"))
+                    q.newTextChild(None,"URL", url)
+                    q.newTextChild(None,"BDAY", bday)
         self.stream.send(iq)
         return 1
 

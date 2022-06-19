@@ -1,12 +1,11 @@
-<pyrss>
-	<dbhost>192.168.220.252</dbhost>
+<config>
+	<dbhost>127.0.0.1</dbhost>
 	<dbuser>dbuser</dbuser>
 	<dbpass>superpassword</dbpass>
 	<dbname>jrdrss</dbname>
 
-	<name>j2j.linuxoid.in</name>
-	<host>192.168.220.250</host>
+	<name>rss.linuxoid.in</name>
+	<host>127.0.0.1</host>
 	<port>5555</port>
 	<password>superpassword</password>
-</pyrss>
-
+</config>
