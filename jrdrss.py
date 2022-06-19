@@ -9,13 +9,15 @@
 #               python-pyxmpp - https://github.com/Jajcus/pyxmpp
 #               python-feedparser - https://github.com/kurtmckee/feedparser
 #               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
+# TODO list:
+# * remove sys.setdefaultencoding and add encode() (see below)
+# * add reconnects and exceptions for mysql (see below)
+# * add timeout for feed fetching function (https://stackoverflow.com/questions/492519/timeout-on-a-function-call)
 
 import os
 import sys
 import time
 import xml.dom.minidom
-import urllib
-import urllib2
 import time
 import thread
 import feedparser
@@ -44,7 +46,7 @@ import pyxmpp.all
 import MySQLdb
 import md5
 
-config='config.xml'
+config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
 dom = xml.dom.minidom.parse(config)
 
