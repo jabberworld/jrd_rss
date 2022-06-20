@@ -18,7 +18,6 @@ import os
 import sys
 import time
 import xml.dom.minidom
-import time
 import thread
 import feedparser
 import re
@@ -51,8 +50,8 @@ config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 dom = xml.dom.minidom.parse(config)
 
 DB_HOST = dom.getElementsByTagName("dbhost")[0].childNodes[0].data
-DB_USER =  dom.getElementsByTagName("dbuser")[0].childNodes[0].data
-DB_NAME =  dom.getElementsByTagName("dbname")[0].childNodes[0].data
+DB_USER = dom.getElementsByTagName("dbuser")[0].childNodes[0].data
+DB_NAME = dom.getElementsByTagName("dbname")[0].childNodes[0].data
 DB_PASS = dom.getElementsByTagName("dbpass")[0].childNodes[0].data
 
 NAME =  dom.getElementsByTagName("name")[0].childNodes[0].data
@@ -72,7 +71,7 @@ class Component(pyxmpp.jabberd.Component):
     db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
     db.ping(True)
     dbCur=db.cursor()
-    dbCur.execute("SELECT feedname, url, timeout, regdate, description FROM feeds")
+    dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
     dbfeeds=dbCur.fetchall()
 # TODO:
 # add reconnects and exceptions for _mysql_exceptions.OperationalError: (2006, 'MySQL server has gone away') + _mysql_exceptions.OperationalError: (2013, 'Lost connection to MySQL server during query')
@@ -247,7 +246,7 @@ class Component(pyxmpp.jabberd.Component):
             ftime=60
         self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")), vsubs, ftime))
         self.last_upd[fname.encode("utf-8")] = 0
-        self.dbCur.execute("SELECT feedname, url, timeout, regdate, description FROM feeds")
+        self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
         self.dbfeeds=self.dbCur.fetchall()
         if fsubs:
             self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname.encode("utf-8"))))
@@ -279,7 +278,7 @@ class Component(pyxmpp.jabberd.Component):
                 if feedstr[0] == nick:
                     url = feedstr[1]
                     bday = str(feedstr[3])
-                    description = str(feedstr[4]+".\nFeed update interval: "+str(feedstr[2]/60)+" mins")
+                    description = str(feedstr[4]+".\nFeed update interval: "+str(feedstr[2]/60)+" mins\nFeed subscribers: "+str(feedstr[5]))
 
                     q.newTextChild(None,"NICKNAME", nick)
                     q.newTextChild(None,"DESC", description.encode("utf-8"))
@@ -439,7 +438,9 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
             self.db.commit()
             for i in d["items"]:
-                md5sum=md5.md5(unicode(re.sub('sid=[0-9A-Za-z]+', '', str(i))).encode("utf-8")).hexdigest()
+                md5sum=re.sub('sid=[0-9A-Za-z]+', '', str(i))
+                md5sum=re.sub('<[^>]*>', '', md5sum)
+                md5sum=md5.md5(unicode(md5sum).encode("utf-8")).hexdigest()
                 feedname=unicode(feed[0],"utf-8")
                 if not self.isSent(feedname, md5sum):
                     self.makeSent(feedname, md5sum)
