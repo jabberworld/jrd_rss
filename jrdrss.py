@@ -10,9 +10,9 @@
 #               python-feedparser - https://github.com/kurtmckee/feedparser
 #               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
 # TODO list:
-# * remove sys.setdefaultencoding and add encode() (see below)
 # * add reconnects and exceptions for mysql (see below)
 # * add timeout for feed fetching function (https://stackoverflow.com/questions/492519/timeout-on-a-function-call)
+# * dbfeeds update when someone just adds bot. dbfeeds[0] = feedname and dbfeeds[5] = subscribers Same below
 
 import os
 import sys
@@ -22,11 +22,6 @@ import thread
 import feedparser
 import re
 import urlparse
-
-# https://stackoverflow.com/questions/3828723/why-should-we-not-use-sys-setdefaultencodingutf-8-in-a-py-script
-# TODO: remove this and add more encode()
-reload(sys)
-sys.setdefaultencoding("utf-8")
 
 from pyxmpp.jid import JID
 from pyxmpp.all import Iq
@@ -64,7 +59,7 @@ programmVersion="0.2"
 class Component(pyxmpp.jabberd.Component):
     start_time=int(time.time())
     last_upd={}
-    name=NAME
+    name=NAME.encode("utf-8")
     updating=0
     idleflag=0
     onliners=[]
@@ -132,7 +127,7 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_presence_handler("unsubscribed",self.presence_control)
 
     def get_last(self, iq):
-        if iq.get_to().as_utf8()!=self.name:
+        if iq.get_to().as_utf8() != self.name:
             return 0
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:last")
@@ -141,7 +136,7 @@ class Component(pyxmpp.jabberd.Component):
         return 1
 
     def get_register(self,iq):
-        if iq.get_to().as_utf8()!=self.name:
+        if iq.get_to().as_utf8() != self.name:
             self.stream.send(iq.make_error_response("feature-not-implemented"))
             return
         iq=iq.make_result_response()
@@ -189,7 +184,7 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.send(iq)
 
     def set_register(self,iq):
-        if iq.get_to().as_utf8()!=self.name:
+        if iq.get_to().as_utf8() != self.name:
             self.stream.send(iq.make_error_response("feature-not-implemented"))
             return
 
@@ -199,9 +194,9 @@ class Component(pyxmpp.jabberd.Component):
         fsubs=iq.xpath_eval("//r:field[@var='tosubscribe']/r:value",{"r":"jabber:x:data"})
         ftime=iq.xpath_eval("//r:field[@var='timeout']/r:value",{"r":"jabber:x:data"})
         if fname and furl and fdesc:
-            fname=unicode(fname[0].getContent(),"utf-8").lower()
-            furl=unicode(furl[0].getContent(),"utf-8")
-            fdesc=unicode(fdesc[0].getContent(),"utf-8")
+            fname=fname[0].getContent().lower()
+            furl=furl[0].getContent()
+            fdesc=fdesc[0].getContent()
         else:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
@@ -244,21 +239,21 @@ class Component(pyxmpp.jabberd.Component):
         ftime=ftime*60
         if ftime<60:
             ftime=60
-        self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname.encode("utf-8")),self.dbQuote(furl.encode("utf-8")),self.dbQuote(fdesc.encode("utf-8")), vsubs, ftime))
-        self.last_upd[fname.encode("utf-8")] = 0
+        self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname),self.dbQuote(furl),self.dbQuote(fdesc), vsubs, ftime))
+        self.last_upd[fname] = 0
         self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
         self.dbfeeds=self.dbCur.fetchall()
         if fsubs:
-            self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname.encode("utf-8"))))
+            self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname)))
         self.db.commit()
         self.stream.send(iqres)
         if fsubs:
-            pres=Presence(stanza_type="subscribe", from_jid=JID(fname+"@"+self.name), to_jid=iqres.get_to().bare())
+            pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname+"@"+self.name, "utf-8")), to_jid=iqres.get_to().bare())
             self.stream.send(pres)
 
     def get_vCard(self,iq):
         description=None
-        if iq.get_to().as_utf8()!=self.name:
+        if iq.get_to().as_utf8() != self.name:
             feedvcard=1
         else:
             feedvcard=0
@@ -281,7 +276,7 @@ class Component(pyxmpp.jabberd.Component):
                     description = str(feedstr[4]+".\nFeed update interval: "+str(feedstr[2]/60)+" mins\nFeed subscribers: "+str(feedstr[5]))
 
                     q.newTextChild(None,"NICKNAME", nick)
-                    q.newTextChild(None,"DESC", description.encode("utf-8"))
+                    q.newTextChild(None,"DESC", description)
                     q.newTextChild(None,"URL", url)
                     q.newTextChild(None,"BDAY", bday)
         self.stream.send(iq)
@@ -309,17 +304,17 @@ class Component(pyxmpp.jabberd.Component):
     def set_search(self,iq):
         searchField=iq.xpath_eval("//r:field[@var='searchField']/r:value",{"r":"jabber:x:data"})
         if searchField:
-            searchField='%'+searchField[0].getContent().replace("%","\\%").encode("utf-8")+'%'
+            searchField='%'+searchField[0].getContent().replace("%","\\%")+'%'
         else:
             return
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField))
         a=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE description LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE description LIKE '%s'" % self.dbQuote(searchField))
         b=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE url LIKE '%s'" % self.dbQuote(searchField.encode("utf-8")))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE url LIKE '%s'" % self.dbQuote(searchField))
         u=self.dbCur.fetchall()
         feednames=[]
         c=[]
@@ -334,7 +329,7 @@ class Component(pyxmpp.jabberd.Component):
             if not x[0] in feednames:
                 feednames.append(x[0])
                 c.append(x)
-        print c,feednames
+        print c, feednames
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:search")
         form=q.newChild(None,"x",None)
@@ -369,7 +364,7 @@ class Component(pyxmpp.jabberd.Component):
             item=form.newChild(None,"item",None)
             jidField=item.newChild(None,"field",None)
             jidField.setProp("var","jid")
-            jidField.newTextChild(None,"value",d[0]+"@"+self.name)
+            jidField.newTextChild(None,"value", d[0]+"@"+self.name)
             urlField=item.newChild(None,"field",None)
             urlField.setProp("var","url")
             urlField.newTextChild(None,"value",d[2])
@@ -440,15 +435,15 @@ class Component(pyxmpp.jabberd.Component):
             for i in d["items"]:
                 md5sum=re.sub('sid=[0-9A-Za-z]+', '', str(i))
                 md5sum=re.sub('<[^>]*>', '', md5sum)
-                md5sum=md5.md5(unicode(md5sum).encode("utf-8")).hexdigest()
-                feedname=unicode(feed[0],"utf-8")
+                md5sum=md5.md5(md5sum).hexdigest()
+                feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
                     self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
                     time.sleep(0.1)
                 else:
                     pass
-                self.dbCur.execute("UPDATE sent SET received=TRUE WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]),self.dbQuote(md5sum)))
+                self.dbCur.execute("UPDATE sent SET received=TRUE WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
                 self.db.commit()
             self.dbCur.execute("DELETE FROM sent WHERE feedname='%s' AND received=FALSE" % self.dbQuote(feed[0]))
             self.db.commit()
@@ -456,12 +451,12 @@ class Component(pyxmpp.jabberd.Component):
         print "end of checkrss"
         self.updating=0
 
-    def makeSent(self,feedname,md5sum):
-        self.dbCur.execute("INSERT INTO sent (feedname,md5,datetime) VALUES ('%s','%s',now())" % (self.dbQuote(feedname).encode("utf-8"),self.dbQuote(md5sum)))
+    def makeSent(self, feedname, md5sum):
+        self.dbCur.execute("INSERT INTO sent (feedname,md5,datetime) VALUES ('%s','%s',now())" % (self.dbQuote(feedname), md5sum))
         self.db.commit()
 
-    def isSent(self,feedname,md5sum):
-        self.dbCur.execute("SELECT count(*) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname).encode("utf-8"),self.dbQuote(md5sum)))
+    def isSent(self, feedname, md5sum):
+        self.dbCur.execute("SELECT count(*) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
         a=self.dbCur.fetchone()
         if a[0]>0:
             return True
@@ -472,7 +467,7 @@ class Component(pyxmpp.jabberd.Component):
             if not i.has_key("summary"):
                 summary="No description"
             else:
-                summary=i["summary"]
+                summary=i["summary"].encode("utf-8")
                 summary=re.sub('<br ??/??>','\n',summary)
                 summary=re.sub('\n\n','\n',summary)
                 summary=summary.replace("&nbsp;"," ")
@@ -499,11 +494,13 @@ class Component(pyxmpp.jabberd.Component):
             desc=oob.newTextChild(oob.ns(),"desc",i["title"].encode("utf-8"))
             self.stream.send(m)
 
-    def presence(self,stanza):
+    def presence(self, stanza):
         fr=stanza.get_from().as_unicode()
-        feedname=stanza.get_to().node#.lower()
+        feedname=stanza.get_to().node
         if feedname==None:
             return None
+        else:
+            feedname=feedname.encode("utf-8")
         if stanza.get_type()=="unavailable" and self.isFeedNameRegistered(feedname):
             if not fr in self.onliners:
                 return None
@@ -515,16 +512,18 @@ class Component(pyxmpp.jabberd.Component):
                 p=Presence(from_jid=stanza.get_to(),to_jid=stanza.get_from())
                 self.stream.send(p)
 
-    def presence_control(self,stanza):
+    def presence_control(self, stanza):
         feedname=stanza.get_to().node
-        self.dbCur.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname).encode("utf-8")))
+        feedname=feedname.encode("utf-8")
+        self.dbCur.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
         a=self.dbCur.fetchone()
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
-                self.dbCur.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname).encode("utf-8")))
+                self.dbCur.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                 if self.dbCur.fetchone()[0]==0:
-                    self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname).encode("utf-8")))
-                    self.dbCur.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname).encode("utf-8"))
+                    self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
+                    self.dbCur.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
+# TODO dbfeeds update when someone just adds bot. dbfeeds[0] = feedname and dbfeeds[5] = subscribers Same below
                     self.db.commit()
                 p=Presence(stanza_type="subscribe",
                     to_jid=stanza.get_from().bare(),
@@ -544,8 +543,8 @@ class Component(pyxmpp.jabberd.Component):
 
         if stanza.get_type()=="unsubscribe" or stanza.get_type()=="unsubscribed":
             if self.isFeedNameRegistered(feedname) and a[0]>0:
-                self.dbCur.execute("DELETE FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname).encode("utf-8")))
-                self.dbCur.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname='%s'" % self.dbQuote(feedname).encode("utf-8"))
+                self.dbCur.execute("DELETE FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
+                self.dbCur.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname='%s'" % self.dbQuote(feedname))
                 p=Presence(stanza_type="unsubscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
