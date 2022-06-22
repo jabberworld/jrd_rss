@@ -12,7 +12,6 @@
 # TODO list:
 # * add reconnects and exceptions for mysql (see below)
 # * add timeout for feed fetching function (https://stackoverflow.com/questions/492519/timeout-on-a-function-call)
-# * dbfeeds update when someone just adds bot. dbfeeds[0] = feedname and dbfeeds[5] = subscribers Same below
 
 import os
 import sys
@@ -332,51 +331,64 @@ class Component(pyxmpp.jabberd.Component):
         print c, feednames
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:search")
+
         form=q.newChild(None,"x",None)
         form.setProp("xmlns","jabber:x:data")
         form.setProp("type","result")
+
         formType=form.newChild(None,"field",None)
         formType.setProp("type","hidden")
         formType.setProp("var","FORM_TYPE")
         formType.newTextChild(None,"value","jabber:iq:search")
+
         reported=form.newChild(None,"reported",None)
         reportedJid=reported.newChild(None,"field",None)
         reportedJid.setProp("var","jid")
         reportedJid.setProp("label","JID")
         reportedJid.setProp("type","jid-single")
+
         reportedUrl=reported.newChild(None,"field",None)
         reportedUrl.setProp("var","url")
         reportedUrl.setProp("label","URL")
         reportedUrl.setProp("type","text-single")
+
         reportedDesc=reported.newChild(None,"field",None)
         reportedDesc.setProp("var","desc")
         reportedDesc.setProp("label","Description")
         reportedDesc.setProp("type","text-single")
+
         reportedSubs=reported.newChild(None,"field",None)
         reportedSubs.setProp("var","subscribers")
         reportedSubs.setProp("type","text-single")
         reportedSubs.setProp("label","Users")
+
         reportedTime=reported.newChild(None,"field",None)
         reportedTime.setProp("var","timeout")
         reportedTime.setProp("type","text-single")
         reportedTime.setProp("label","Update interval")
+
         for d in c:
             item=form.newChild(None,"item",None)
             jidField=item.newChild(None,"field",None)
             jidField.setProp("var","jid")
             jidField.newTextChild(None,"value", d[0]+"@"+self.name)
+
             urlField=item.newChild(None,"field",None)
             urlField.setProp("var","url")
             urlField.newTextChild(None,"value",d[2])
+
             descField=item.newChild(None,"field",None)
             descField.setProp("var","desc")
             descField.newTextChild(None,"value",d[1])
+
             sbsField=item.newChild(None,"field",None)
             sbsField.setProp("var","subscribers")
             sbsField.newTextChild(None,"value",str(d[3]))
+
             timeField=item.newChild(None,"field",None)
             timeField.setProp("var","timeout")
             timeField.newTextChild(None,"value",str(d[4]/60))
+
         self.stream.send(iq)
         return 1
 
@@ -384,8 +396,8 @@ class Component(pyxmpp.jabberd.Component):
         global programmVersion
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:version")
-        q.newTextChild(q.ns(),"name", "Jabber RSS Transport (https://github.com/jabberworld/jrd_rss)")
-        q.newTextChild(q.ns(),"version", programmVersion)
+        q.newTextChild(q.ns(), "name", "Jabber RSS Transport (https://github.com/jabberworld/jrd_rss)")
+        q.newTextChild(q.ns(), "version", programmVersion)
         self.stream.send(iq)
         return 1
 
@@ -468,6 +480,7 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 summary=i["summary"].encode("utf-8")
                 summary=re.sub('<br ??/??>','\n',summary)
+                summary=re.sub('<[^>]*>','',summary)
                 summary=re.sub('\n\n','\n',summary)
                 summary=summary.replace("&nbsp;"," ")
                 summary=summary.replace("&ndash;","–")
@@ -482,7 +495,6 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
-                summary=re.sub('<[^>]*>','',summary)
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
                 from_jid=unicode(feedname+"@"+self.name, "utf-8"),
                 stanza_type="chat", # was headline
@@ -522,7 +534,8 @@ class Component(pyxmpp.jabberd.Component):
                 if self.dbCur.fetchone()[0]==0:
                     self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                     self.dbCur.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
-# TODO dbfeeds update when someone just adds bot. dbfeeds[0] = feedname and dbfeeds[5] = subscribers Same below
+                    self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+                    self.dbfeeds=self.dbCur.fetchall()
                     self.db.commit()
                 p=Presence(stanza_type="subscribe",
                     to_jid=stanza.get_from().bare(),
@@ -544,6 +557,8 @@ class Component(pyxmpp.jabberd.Component):
             if self.isFeedNameRegistered(feedname) and a[0]>0:
                 self.dbCur.execute("DELETE FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                 self.dbCur.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname='%s'" % self.dbQuote(feedname))
+                self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+                self.dbfeeds=self.dbCur.fetchall()
                 p=Presence(stanza_type="unsubscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
