@@ -433,8 +433,7 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
             self.db.commit()
             for i in d["items"]:
-                md5sum=re.sub('sid=[0-9A-Za-z]+', '', str(i))
-                md5sum=re.sub('<[^>]*>', '', md5sum)
+                md5sum=re.sub('<[^>]*>', '', str(i))
                 md5sum=md5.md5(md5sum).hexdigest()
                 feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
@@ -484,14 +483,14 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
                 summary=re.sub('<[^>]*>','',summary)
-            m=Message(to_jid=JID(unicode(ii[0],"utf-8")),
-                from_jid=feedname+"@"+self.name,
+            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
+                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
                 stanza_type="chat", # was headline
                 subject=i["title"],
                 body=summary)
             oob=m.add_new_content("jabber:x:oob","x")
-            url=oob.newTextChild(oob.ns(),"url",i["link"])
-            desc=oob.newTextChild(oob.ns(),"desc",i["title"].encode("utf-8"))
+            desc=oob.newTextChild(oob.ns(), "desc", i["title"].encode("utf-8"))
+            url=oob.newTextChild(oob.ns(), "url", i["link"].encode("utf-8"))
             self.stream.send(m)
 
     def presence(self, stanza):
