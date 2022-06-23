@@ -62,11 +62,13 @@ class Component(pyxmpp.jabberd.Component):
     updating=0
     idleflag=0
     onliners=[]
-    db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME)
+
+    db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=True)
     db.ping(True)
     dbCur=db.cursor()
     dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
     dbfeeds=dbCur.fetchall()
+
 # TODO:
 # add reconnects and exceptions for _mysql_exceptions.OperationalError: (2006, 'MySQL server has gone away') + _mysql_exceptions.OperationalError: (2013, 'Lost connection to MySQL server during query')
 # https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
@@ -244,7 +246,7 @@ class Component(pyxmpp.jabberd.Component):
         self.dbfeeds=self.dbCur.fetchall()
         if fsubs:
             self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname)))
-        self.db.commit()
+#        self.db.commit()
         self.stream.send(iqres)
         if fsubs:
             pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname+"@"+self.name, "utf-8")), to_jid=iqres.get_to().bare())
@@ -443,7 +445,7 @@ class Component(pyxmpp.jabberd.Component):
             if bozo==1:
                 continue
             self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
-            self.db.commit()
+#            self.db.commit()
             for i in d["items"]:
                 md5sum=re.sub('<[^>]*>', '', str(i))
                 md5sum=md5.md5(md5sum).hexdigest()
@@ -455,16 +457,16 @@ class Component(pyxmpp.jabberd.Component):
                 else:
                     pass
                 self.dbCur.execute("UPDATE sent SET received=TRUE WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
-                self.db.commit()
+#                self.db.commit()
             self.dbCur.execute("DELETE FROM sent WHERE feedname='%s' AND received=FALSE" % self.dbQuote(feed[0]))
-            self.db.commit()
+#            self.db.commit()
             print "end of update"
         print "end of checkrss"
         self.updating=0
 
     def makeSent(self, feedname, md5sum):
         self.dbCur.execute("INSERT INTO sent (feedname,md5,datetime) VALUES ('%s','%s',now())" % (self.dbQuote(feedname), md5sum))
-        self.db.commit()
+#        self.db.commit()
 
     def isSent(self, feedname, md5sum):
         self.dbCur.execute("SELECT count(*) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
@@ -534,9 +536,9 @@ class Component(pyxmpp.jabberd.Component):
                 if self.dbCur.fetchone()[0]==0:
                     self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                     self.dbCur.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
+#                    self.db.commit()
                     self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
                     self.dbfeeds=self.dbCur.fetchall()
-                    self.db.commit()
                 p=Presence(stanza_type="subscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
@@ -567,7 +569,7 @@ class Component(pyxmpp.jabberd.Component):
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
                 self.stream.send(p)
-                self.db.commit()
+#                self.db.commit()
 
 #try:
 c=Component(JID(NAME),PASSWORD,HOST,int(PORT),disco_type="x-rss",disco_name="JRuDevels RSS Transport")
