@@ -55,6 +55,37 @@ PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
 programmVersion="0.2"
 
+class DB:
+
+    conn = None
+    cursor = None
+
+    def connect(self):
+        self.conn = MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=True)
+        self.cursor = self.conn.cursor()
+
+    def execute(self, sql):
+        try:
+            self.cursor.execute(sql)
+        except (AttributeError, MySQLdb.OperationalError):
+            print "no connection to database"
+            self.connect()
+            self.cursor.execute(sql)
+        return self.cursor
+
+    def dbfeeds(self):
+        self.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+        dbfeeds = self.cursor.fetchall()
+        return dbfeeds
+
+    def fetchone(self):
+        fetchone = self.cursor.fetchone()
+        return fetchone
+
+    def fetchall(self):
+        fetchall = self.cursor.fetchall()
+        return fetchall
+
 class Component(pyxmpp.jabberd.Component):
     start_time=int(time.time())
     last_upd={}
@@ -63,11 +94,15 @@ class Component(pyxmpp.jabberd.Component):
     idleflag=0
     onliners=[]
 
-    db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=True)
-    db.ping(True)
-    dbCur=db.cursor()
-    dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-    dbfeeds=dbCur.fetchall()
+#    db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=True)
+#    dbCur=db.cursor()
+#    dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+#    dbfeeds=dbCur.fetchall()
+    dbCur = DB()
+#    var=dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+    dbfeeds = DB.dbfeeds(DB())
+    print dbfeeds
+#    dbfeeds=DB().connect().fetchall()
 
 # TODO:
 # add reconnects and exceptions for _mysql_exceptions.OperationalError: (2006, 'MySQL server has gone away') + _mysql_exceptions.OperationalError: (2013, 'Lost connection to MySQL server during query')
