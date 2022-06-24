@@ -306,6 +306,9 @@ class Component(pyxmpp.jabberd.Component):
                     q.newTextChild(None,"DESC", description)
                     q.newTextChild(None,"URL", url)
                     q.newTextChild(None,"BDAY", bday)
+#                    feedav=q.newTextChild(None,"PHOTO", None)
+#                    feedav.newTextChild(None, "EXTVAL", '')
+#                    feedav.newTextChild(None, "TYPE", 'image/png')
         self.stream.send(iq)
         return 1
 
@@ -511,6 +514,7 @@ class Component(pyxmpp.jabberd.Component):
                 summary=re.sub('<br ??/??>','\n',summary)
                 summary=re.sub('<[^>]*>','',summary)
                 summary=re.sub('\n\n','\n',summary)
+                summary=re.sub('$','\n\n',summary)
                 summary=summary.replace("&nbsp;"," ")
                 summary=summary.replace("&ndash;","–")
                 summary=summary.replace("&mdash;","—")
@@ -526,12 +530,13 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&gt;",">")
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
                 from_jid=unicode(feedname+"@"+self.name, "utf-8"),
-                stanza_type="chat", # was headline
-                subject=i["title"],
+                stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
+                subject=i["title"]+"\n  URL: "+i["link"],
                 body=summary)
-            oob=m.add_new_content("jabber:x:oob","x")
-            desc=oob.newTextChild(oob.ns(), "desc", i["title"].encode("utf-8"))
-            url=oob.newTextChild(oob.ns(), "url", i["link"].encode("utf-8"))
+# uncomment this if you want use "headline" message type and remove "+"\n  URL: "+i["link"]" from subject above
+#            oob=m.add_new_content("jabber:x:oob","x")
+#            desc=oob.newTextChild(oob.ns(), "desc", i["title"].encode("utf-8")) # use this to add url description with headline type of message
+#            url=oob.newTextChild(oob.ns(), "url", i["link"].encode("utf-8"))
             self.stream.send(m)
 
     def presence(self, stanza):
