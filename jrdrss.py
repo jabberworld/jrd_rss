@@ -9,9 +9,6 @@
 #               python-pyxmpp - https://github.com/Jajcus/pyxmpp
 #               python-feedparser - https://github.com/kurtmckee/feedparser
 #               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
-# TODO list:
-# * add reconnects and exceptions for mysql (see below)
-# * add timeout for feed fetching function (https://stackoverflow.com/questions/492519/timeout-on-a-function-call)
 
 import os
 import sys
@@ -21,6 +18,7 @@ import thread
 import feedparser
 import re
 import urlparse
+import socket
 
 from pyxmpp.jid import JID
 from pyxmpp.all import Iq
@@ -41,6 +39,10 @@ import md5
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
+# https://stackoverflow.com/questions/9772691/feedparser-with-timeout
+# can't use requests on my system, but with sockets all ok too
+socket.setdefaulttimeout(10) # timeout for fetching feeds
+
 dom = xml.dom.minidom.parse(config)
 
 DB_HOST = dom.getElementsByTagName("dbhost")[0].childNodes[0].data
@@ -53,8 +55,10 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="0.2"
+programmVersion="0.3"
 
+# Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
+# and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
 class DB:
 
     conn = None
@@ -68,23 +72,20 @@ class DB:
         try:
             self.cursor.execute(sql)
         except (AttributeError, MySQLdb.OperationalError):
-            print "no connection to database"
+            print "No connection to database"
             self.connect()
             self.cursor.execute(sql)
         return self.cursor
 
     def dbfeeds(self):
         self.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-        dbfeeds = self.cursor.fetchall()
-        return dbfeeds
+        return self.cursor.fetchall()
 
     def fetchone(self):
-        fetchone = self.cursor.fetchone()
-        return fetchone
+        return self.cursor.fetchone()
 
     def fetchall(self):
-        fetchall = self.cursor.fetchall()
-        return fetchall
+        return self.cursor.fetchall()
 
 class Component(pyxmpp.jabberd.Component):
     start_time=int(time.time())
@@ -94,26 +95,16 @@ class Component(pyxmpp.jabberd.Component):
     idleflag=0
     onliners=[]
 
-#    db=MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=True)
-#    dbCur=db.cursor()
-#    dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-#    dbfeeds=dbCur.fetchall()
     dbCur = DB()
-#    var=dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-    dbfeeds = DB.dbfeeds(DB())
-    print dbfeeds
-#    dbfeeds=DB().connect().fetchall()
-
-# TODO:
-# add reconnects and exceptions for _mysql_exceptions.OperationalError: (2006, 'MySQL server has gone away') + _mysql_exceptions.OperationalError: (2013, 'Lost connection to MySQL server during query')
-# https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
+    dbfeeds = dbCur.dbfeeds()
+#    dbfeeds = DB.dbfeeds(DB()) # this uses another connection to DB
+#    print dbfeeds
 
     def dbQuote(self, string):
         if string is None:
             return ""
         else:
             return MySQLdb.escape_string(string)
-#	    return string.replace("\\","\\\\").replace("'","\\'")
 
     def isFeedNameRegistered(self, feedname):
         self.dbCur.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname))
@@ -478,6 +469,7 @@ class Component(pyxmpp.jabberd.Component):
             except:
                 continue
             if bozo==1:
+                print "Some problems with feed"
                 continue
             self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
 #            self.db.commit()
@@ -495,8 +487,8 @@ class Component(pyxmpp.jabberd.Component):
 #                self.db.commit()
             self.dbCur.execute("DELETE FROM sent WHERE feedname='%s' AND received=FALSE" % self.dbQuote(feed[0]))
 #            self.db.commit()
-            print "end of update"
-        print "end of checkrss"
+            print "End of update"
+        print "End of checkrss"
         self.updating=0
 
     def makeSent(self, feedname, md5sum):
@@ -606,12 +598,16 @@ class Component(pyxmpp.jabberd.Component):
                 self.stream.send(p)
 #                self.db.commit()
 
-#try:
-c=Component(JID(NAME),PASSWORD,HOST,int(PORT),disco_type="x-rss",disco_name="JRuDevels RSS Transport")
-c.connect()
-c.loop(1)
-#except KeyboardInterrupt:
-    #sys.exit()
-    #c.disconnect()
-#except:
-    #sys.exit(1)
+while True:
+    try:
+        print "Connecting to server"
+        c=Component(JID(NAME), PASSWORD, HOST, int(PORT), disco_type="x-rss", disco_name="Jabber RSS Transport")
+        c.connect()
+        c.loop(1)
+    except KeyboardInterrupt:
+        sys.exit()
+        c.disconnect()
+    except:
+        print "Lost connection to server, reconnect in 60 seconds"
+        time.sleep(60)
+        pass
