@@ -1,0 +1,15 @@
+[Unit]
+Description=RSS jabber transport
+After=network.target remote-fs.target nss-lookup.target
+
+[Service]
+User=jrdrss
+Group=jrdrss
+Type=simple
+ExecStart=/usr/bin/python2 -u jrdrss.py
+WorkingDirectory=/home/jrdrss/jrdrss
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
