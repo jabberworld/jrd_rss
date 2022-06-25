@@ -612,13 +612,16 @@ class Component(pyxmpp.jabberd.Component):
 while True:
     try:
         print "Connecting to server"
-        c=Component(JID(NAME), PASSWORD, HOST, int(PORT), disco_type="x-rss", disco_name="Jabber RSS Transport")
+# https://xmpp.org/registrar/disco-categories.html
+        c=Component(JID(NAME), PASSWORD, HOST, int(PORT), disco_category='headline', disco_type="rss", disco_name="Jabber RSS Transport")
         c.connect()
         c.loop(1)
     except KeyboardInterrupt:
-        sys.exit()
+        print "Keyboard interrupt, shutting down"
         c.disconnect()
-    except:
+        sys.exit()
+    except Exception as ae:
+        print ae
         print "Lost connection to server, reconnect in 60 seconds"
         time.sleep(60)
         pass
