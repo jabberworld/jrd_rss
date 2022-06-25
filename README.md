@@ -37,14 +37,16 @@
 * Добавить в конфиг-файл Jabber-сервера описание транспорта. На примере ejabberd:
 
 Старый формат:
+```
      {5555, ejabberd_service, [
                               {ip, {127.0.0.1}},
                               {access, all},
                               {shaper_rule, fast},
                               {host, "rss.domain.com", [{password, "superpassword"}]}
                               ]},
-
+```
  Новый формат:
+```
     -
       port: 5555
       ip: "127.0.0.1"
@@ -54,6 +56,7 @@
        "rss.domain.com":
          password: "superpassword"
       shaper_rule: fast
+```
 
 * В файле config.xml транспорта прописать используемые параметры подключения - к mysql (хост, юзер, пароль и название базы) и к Jabber-серверу (название транспорта, IP, порт, пароль).
 * Тем или иным способом запустить jrdrss.py (в идеале от отдельного пользователя) - можно в GNU screen или с помощью идущего в комплекте jrdrss.service-файла для systemd. Последний можно разместить в ~/.config/systemd/user/jrdrss.service, далее выполнить:
