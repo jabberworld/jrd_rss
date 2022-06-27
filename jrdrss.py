@@ -616,6 +616,7 @@ while True:
         c=Component(JID(NAME), PASSWORD, HOST, int(PORT), disco_category='headline', disco_type="rss", disco_name="Jabber RSS Transport")
         c.connect()
         c.loop(1)
+        time.sleep(1) # to prevent fast reconnects in case of auth problems
     except KeyboardInterrupt:
         print "Keyboard interrupt, shutting down"
         c.disconnect()
