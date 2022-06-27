@@ -534,11 +534,19 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
+# i["title"] and i["link"] - unicode obj
+# Conversations doesnt support subject for messages, so all data moved to body:
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
                 from_jid=unicode(feedname+"@"+self.name, "utf-8"),
                 stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-                subject=i["title"]+"\n  URL: "+i["link"],
-                body=summary)
+                body=i["title"].encode("utf-8")+"\n\nLink: "+i["link"].encode("utf-8")+"\n\n"+summary)
+# You can use separate subject for normal clients and for headline type of messages
+#            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
+#                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
+#                stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
+#                subject=i["title"]+"\n  URL: "+i["link"],
+#                body=summary)
+
 # uncomment this if you want use "headline" message type and remove "+"\n  URL: "+i["link"]" from subject above
 #            oob=m.add_new_content("jabber:x:oob","x")
 #            desc=oob.newTextChild(oob.ns(), "desc", i["title"].encode("utf-8")) # use this to add url description with headline type of message
