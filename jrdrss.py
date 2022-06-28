@@ -19,25 +19,17 @@ import feedparser
 import re
 import urlparse
 import socket
+import MySQLdb
+from hashlib import md5
 
 from pyxmpp.jid import JID
-#from pyxmpp.all import Iq # is it used?
-#from pyxmpp.all import Presence
-#from pyxmpp.all import Message
 from pyxmpp.presence import Presence
 from pyxmpp.message import Message
 
-#from pyxmpp.jabber.disco import DiscoInfo # is it used?
 from pyxmpp.jabber.disco import DiscoItem
 from pyxmpp.jabber.disco import DiscoItems
-#from pyxmpp.jabber.disco import DiscoIdentity # is it used?
 
 import pyxmpp.jabberd.all
-#import pyxmpp.jabber.all
-#import pyxmpp.all
-
-import MySQLdb
-import md5
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -488,7 +480,7 @@ class Component(pyxmpp.jabberd.Component):
                 print "Some problems with feed"
                 continue
             for i in d["items"]:
-                md5sum=md5.md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
+                md5sum=md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
                 feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
                     self.makeSent(feedname, md5sum)
@@ -543,7 +535,7 @@ class Component(pyxmpp.jabberd.Component):
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
                 from_jid=unicode(feedname+"@"+self.name, "utf-8"),
                 stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-                body="*"+i["title"].encode("utf-8")+"*\nLink: "+i["link"].encode("utf-8")+"\n\n"+summary+"\n")
+                body="*"+i["title"].encode("utf-8")+"*\nLink: "+i["link"].encode("utf-8")+"\n\n"+summary+"\n\n")
 # You can use separate subject for normal clients and for headline type of messages
 #            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
 #                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
