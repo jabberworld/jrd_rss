@@ -21,18 +21,20 @@ import urlparse
 import socket
 
 from pyxmpp.jid import JID
-from pyxmpp.all import Iq
-from pyxmpp.all import Presence
-from pyxmpp.all import Message
+#from pyxmpp.all import Iq # is it used?
+#from pyxmpp.all import Presence
+#from pyxmpp.all import Message
+from pyxmpp.presence import Presence
+from pyxmpp.message import Message
 
-from pyxmpp.jabber.disco import DiscoInfo
+#from pyxmpp.jabber.disco import DiscoInfo # is it used?
 from pyxmpp.jabber.disco import DiscoItem
 from pyxmpp.jabber.disco import DiscoItems
-from pyxmpp.jabber.disco import DiscoIdentity
+#from pyxmpp.jabber.disco import DiscoIdentity # is it used?
 
 import pyxmpp.jabberd.all
-import pyxmpp.jabber.all
-import pyxmpp.all
+#import pyxmpp.jabber.all
+#import pyxmpp.all
 
 import MySQLdb
 import md5
@@ -55,7 +57,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.0"
+programmVersion="1.1"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -153,6 +155,23 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_presence_handler("subscribed",self.presence_control)
         self.stream.set_presence_handler("unsubscribe",self.presence_control)
         self.stream.set_presence_handler("unsubscribed",self.presence_control)
+
+    def browseitems(self, iq=None, node=None):
+        disco_items=DiscoItems()
+        if node == None and iq.get_to().node == None:
+            newjid = JID(domain=self.name)
+            item = DiscoItem(disco_items, newjid, name="Registered Feeds", node="feeds")
+
+        if node=="feeds":
+            for i in self.dbfeeds:
+                name = unicode(i[0], "utf-8")
+                desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
+                newjid = JID(name, self.name)
+                item = DiscoItem(disco_items, newjid, name=desc, node=None)
+        return disco_items
+
+    def disco_get_items(self, node, iq):
+        return self.browseitems(iq, node)
 
     def get_last(self, iq):
         if iq.get_to().as_utf8() != self.name:
@@ -468,8 +487,6 @@ class Component(pyxmpp.jabberd.Component):
             if bozo==1:
                 print "Some problems with feed"
                 continue
-#            self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
-#            self.db.commit()
             for i in d["items"]:
                 md5sum=md5.md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
                 feedname=feed[0]
@@ -531,10 +548,10 @@ class Component(pyxmpp.jabberd.Component):
 #            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
 #                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
 #                stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-#                subject=i["title"]+"\n  URL: "+i["link"],
+#                subject=i["title"]+"\n Link: "+i["link"],
 #                body=summary)
 
-# uncomment this if you want use "headline" message type and remove "+"\n  URL: "+i["link"]" from subject above
+# uncomment this if you want to use "headline" message type and remove "+"\n  Link: "+i["link"]" from subject above
 #            oob=m.add_new_content("jabber:x:oob","x")
 #            desc=oob.newTextChild(oob.ns(), "desc", i["title"].encode("utf-8")) # use this to add url description with headline type of message
 #            url=oob.newTextChild(oob.ns(), "url", i["link"].encode("utf-8"))
