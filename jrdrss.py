@@ -480,32 +480,32 @@ class Component(pyxmpp.jabberd.Component):
             if bozo==1:
                 print "Some problems with feed"
                 continue
-            self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
+#            self.dbCur.execute("UPDATE sent SET received=FALSE WHERE feedname='%s'" % self.dbQuote(feed[0]))
 #            self.db.commit()
             for i in d["items"]:
-                md5sum=re.sub('<[^>]*>', '', str(i))
-                md5sum=md5.md5(md5sum).hexdigest()
+                md5sum=md5.md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
                 feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
                     self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
-                    time.sleep(0.1)
+                    time.sleep(0.2)
                 else:
                     pass
-                self.dbCur.execute("UPDATE sent SET received=TRUE WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
+                self.dbCur.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
 #                self.db.commit()
-            self.dbCur.execute("DELETE FROM sent WHERE feedname='%s' AND received=FALSE" % self.dbQuote(feed[0]))
-#            self.db.commit()
             print "End of update"
+# purging old records
+        self.dbCur.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
+#        self.db.commit()
         print "End of checkrss"
         self.updating=0
 
     def makeSent(self, feedname, md5sum):
-        self.dbCur.execute("INSERT INTO sent (feedname,md5,datetime) VALUES ('%s','%s',now())" % (self.dbQuote(feedname), md5sum))
+        self.dbCur.execute("INSERT INTO sent (feedname, md5) VALUES ('%s','%s')" % (self.dbQuote(feedname), md5sum))
 #        self.db.commit()
 
     def isSent(self, feedname, md5sum):
-        self.dbCur.execute("SELECT count(*) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
+        self.dbCur.execute("SELECT IFNULL(received, count(*)) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
         a=self.dbCur.fetchone()
         if a[0]>0:
             return True
@@ -520,7 +520,6 @@ class Component(pyxmpp.jabberd.Component):
                 summary=re.sub('<br ??/??>','\n',summary)
                 summary=re.sub('<[^>]*>','',summary)
                 summary=re.sub('\n\n','\n',summary)
-                summary=re.sub('$','\n\n',summary)
                 summary=summary.replace("&nbsp;"," ")
                 summary=summary.replace("&ndash;","–")
                 summary=summary.replace("&mdash;","—")
@@ -539,7 +538,7 @@ class Component(pyxmpp.jabberd.Component):
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
                 from_jid=unicode(feedname+"@"+self.name, "utf-8"),
                 stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-                body=i["title"].encode("utf-8")+"\n\nLink: "+i["link"].encode("utf-8")+"\n\n"+summary)
+                body="*"+i["title"].encode("utf-8")+"*\nLink: "+i["link"].encode("utf-8")+"\n\n"+summary+"\n")
 # You can use separate subject for normal clients and for headline type of messages
 #            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
 #                from_jid=unicode(feedname+"@"+self.name, "utf-8"),

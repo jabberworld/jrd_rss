@@ -17,7 +17,7 @@ feedname varchar(255)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE utf8_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sent (
-received boolean DEFAULT true,
+received boolean DEFAULT false,
 md5 varchar(32),
 feedname varchar(255),
 datetime TIMESTAMP NOT NULL
