@@ -346,25 +346,13 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s'" % self.dbQuote(searchField))
+        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s' OR description LIKE '%s' OR url LIKE '%s'" % (self.dbQuote(searchField), self.dbQuote(searchField), self.dbQuote(searchField)))
         a=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE description LIKE '%s'" % self.dbQuote(searchField))
-        b=self.dbCur.fetchall()
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE url LIKE '%s'" % self.dbQuote(searchField))
-        u=self.dbCur.fetchall()
         feednames=[]
         c=[]
         for x in a:
             feednames.append(x[0])
             c.append(x)
-        for x in b:
-            if not x[0] in feednames:
-                feednames.append(x[0])
-                c.append(x)
-        for x in u:
-            if not x[0] in feednames:
-                feednames.append(x[0])
-                c.append(x)
         print c, feednames
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:search")
