@@ -59,7 +59,7 @@ class DB:
     cursor = None
 
     def connect(self):
-        self.conn = MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=True)
+        self.conn = MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=False)
         self.cursor = self.conn.cursor()
 
     def execute(self, sql):
@@ -284,6 +284,7 @@ class Component(pyxmpp.jabberd.Component):
         self.dbfeeds=self.dbCur.fetchall()
         if fsubs:
             self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname)))
+        self.dbCur.execute("COMMIT")
 #        self.db.commit()
         self.stream.send(iqres)
         if fsubs:
@@ -493,12 +494,14 @@ class Component(pyxmpp.jabberd.Component):
             print "End of update"
 # purging old records
         self.dbCur.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
+        self.dbCur.execute("COMMIT")
 #        self.db.commit()
         print "End of checkrss"
         self.updating=0
 
     def makeSent(self, feedname, md5sum):
         self.dbCur.execute("INSERT INTO sent (feedname, md5) VALUES ('%s','%s')" % (self.dbQuote(feedname), md5sum))
+        self.dbCur.execute("COMMIT")
 #        self.db.commit()
 
     def isSent(self, feedname, md5sum):
@@ -578,6 +581,7 @@ class Component(pyxmpp.jabberd.Component):
                 if self.dbCur.fetchone()[0]==0:
                     self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                     self.dbCur.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
+                    self.dbCur.execute("COMMIT")
 #                    self.db.commit()
                     self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
                     self.dbfeeds=self.dbCur.fetchall()
@@ -611,6 +615,7 @@ class Component(pyxmpp.jabberd.Component):
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
                 self.stream.send(p)
+                self.dbCur.execute("COMMIT")
 #                self.db.commit()
 
 while True:
