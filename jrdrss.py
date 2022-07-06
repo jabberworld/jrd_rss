@@ -292,7 +292,6 @@ class Component(pyxmpp.jabberd.Component):
             self.stream.send(pres)
 
     def get_vCard(self,iq):
-        description=None
         if iq.get_to().as_utf8() != self.name:
             feedvcard=1
         else:
@@ -533,12 +532,14 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
+                if i["author"] != "":
+                    author = " (by "+i["author"].encode("utf-8")+")"
 # i["title"] and i["link"] - unicode obj
 # Conversations doesnt support subject for messages, so all data moved to body:
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
                 from_jid=unicode(feedname+"@"+self.name, "utf-8"),
                 stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-                body="*"+i["title"].encode("utf-8")+"*\nLink: "+i["link"].encode("utf-8")+"\n\n"+summary+"\n\n")
+                body="*"+i["title"].encode("utf-8")+"*\nLink: "+i["link"].encode("utf-8")+author+"\n\n"+summary+"\n\n")
 # You can use separate subject for normal clients and for headline type of messages
 #            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
 #                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
