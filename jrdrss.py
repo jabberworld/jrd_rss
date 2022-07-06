@@ -532,8 +532,11 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
-                if i["author"] != "":
-                    author = " (by "+i["author"].encode("utf-8")+")"
+                try:
+                    if i["author"] != None:
+                        author = " (by "+i["author"].encode("utf-8")+")"
+                except:
+                    author = ""
 # i["title"] and i["link"] - unicode obj
 # Conversations doesnt support subject for messages, so all data moved to body:
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
