@@ -49,7 +49,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.1"
+programmVersion="1.1.1"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -90,8 +90,12 @@ class Component(pyxmpp.jabberd.Component):
     onliners=[]
     rsslogo='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAACH1BMVEX3hCL3gyH3hCH2gyH2gh/2gR72gh72gyD4oVf6wpP6vIj5snX4pF33lUL2iSz6u4f+/v7+/Pr+9/L97eD82r36vov4n1P6u4b+/v3////+/f3+8+r817j5rWz2jDD++PT82rz4pmD2hib2giD5snf97d798uj+/Pv+9Oz6xZj3kDj2ii73lD/3mkn5tn37z6j96Nf++vb+/fv827/4nE32hCL2hiX3kjz5r3H82bv+///95tT4o1r2iCv3jDL2iSv2hCP5rGv84cn96tr5tHj84837yqH5s3f3mUn2hyj3kTr6xpr+9/H4m036wY////797+T70a34pV/2hyn5tXv+8un82776wI///v7+9e37zaX3l0X5sHH6xJb6wZD85tL5tXz4qGT70q/83sX97+P6x5v+/fz82Lr2iy/3iy73mUf84Mj++/j97+L3kTv84cr++PP4rGr3jzb98uf85M/3lkL5rW381rX4qmf97d/2hyf4nlH2hif3jjT4qmj4oln5sXP4m0z95dH83MH5sXX6voz3kz796tn84cv5snb3kDn97N73lkP70Kz97N383sT3iy/6u4X++vf5rm75uID+9/D6wI7959T3jzf4nE798un6xZf2gyL++PL70q73jTP948371bP3nE36uoT2ii37yZ785dH2iCn83MD2iS397uD5q2r5uYH2hST4pmH6uYP6uYH5q2n5sXT6uYL4nlKE35UjAAACC0lEQVR42qyRA5cjQRDHr7dqpta2bZuxbZ9t27bNz3rdebGe9p/MTONX3rM7YoyVlboHAJRkBFbMnsorKquqa2qhCMOwrr6+obGpuaW1FokVAtraO4Q6u7p7ehEKeuhIqK9/YHCI5QHDI6ONYwlofGIy10kZTE3PVM/OzS/EicWlZcohVkiWJVxdW99oFMTm1jZAtocdhVKFXFNqzZggtNtZPhjp9M0Go8mMQ2ix2uI+7MgyAUdHh7PB5fZ4Ec0+vyACk0OZQLBDKBSORIlUMUEs7h2EDGBfogv1+wdWSHVAROnypIMwOHjosKthUyBH1CtkPnqMr46foPQ0VYMnT82ePiOIsx7Cc+f54sLFjDwZEOKlysuCuHIV8doFvriuhMxWEA2pbtwUeRhuDZ1o5gv/bUzHGLpzdwoI7o2K9O4jPuDhOitTowd4OPfo8RMvqZ42cCIyiM+eizRTMYamX/ASbC8BX+n5xes3OPiWf99NDyVSRJ8w7Hj/gegjr/DTZxm/8O/X+3ICGPoW78H3H4Q/f/E+//4jDfA6zsSkBIA3/grgnxfo/+YvADIWVrEtkpaUlFgMCwnmJUvlJdOWVSszMi+XkUyTXLGSrXSVgJTENLg32Jes5lzTA0wljGvXrd+wfmMNu/amzRs2b0HkAmCOYFFmBocIKOEwAwWAACyCyHwwBpjJBKGpAgAbEWloKH7cQAAAAABJRU5ErkJggg=='
 
-    dbCur = DB()
-    dbfeeds = dbCur.dbfeeds()
+    dbCurST = DB() # search thread
+    dbCurUT = DB() # update thread
+    dbCurRT = DB() # register thread
+    dbCurPT = DB() # presence thread
+
+    dbfeeds = dbCurUT.dbfeeds() # no matter which thread to use
 #    dbfeeds = DB.dbfeeds(DB()) # this uses another connection to DB
 #    print dbfeeds
 
@@ -102,8 +106,8 @@ class Component(pyxmpp.jabberd.Component):
             return MySQLdb.escape_string(string)
 
     def isFeedNameRegistered(self, feedname):
-        self.dbCur.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname))
-        a=self.dbCur.fetchone()
+        self.dbCurRT.execute("SELECT count(*) FROM feeds WHERE feedname='%s'" % self.dbQuote(feedname))
+        a=self.dbCurRT.fetchone()
         if not a:
             return False
         elif a[0]==0:
@@ -112,8 +116,8 @@ class Component(pyxmpp.jabberd.Component):
             return True
 
     def isFeedUrlRegistered(self, furl):
-        self.dbCur.execute("SELECT count(*) FROM feeds WHERE url='%s'" % self.dbQuote(furl))
-        a=self.dbCur.fetchone()
+        self.dbCurRT.execute("SELECT count(*) FROM feeds WHERE url='%s'" % self.dbQuote(furl))
+        a=self.dbCurRT.fetchone()
         if not a:
             return False
         elif a[0]==0:
@@ -278,13 +282,13 @@ class Component(pyxmpp.jabberd.Component):
         ftime=ftime*60
         if ftime<60:
             ftime=60
-        self.dbCur.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname),self.dbQuote(furl),self.dbQuote(fdesc), vsubs, ftime))
+        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname),self.dbQuote(furl),self.dbQuote(fdesc), vsubs, ftime))
         self.last_upd[fname] = 0
-        self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-        self.dbfeeds=self.dbCur.fetchall()
+        self.dbCurRT.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+        self.dbfeeds=self.dbCurRT.fetchall()
         if fsubs:
-            self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname)))
-        self.dbCur.execute("COMMIT")
+            self.dbCurRT.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname)))
+        self.dbCurRT.execute("COMMIT")
 #        self.db.commit()
         self.stream.send(iqres)
         if fsubs:
@@ -357,8 +361,8 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCur.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s' OR description LIKE '%s' OR url LIKE '%s'" % (self.dbQuote(searchField), self.dbQuote(searchField), self.dbQuote(searchField)))
-        a=self.dbCur.fetchall()
+        self.dbCurST.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE '%s' OR description LIKE '%s' OR url LIKE '%s'" % (self.dbQuote(searchField), self.dbQuote(searchField), self.dbQuote(searchField)))
+        a=self.dbCurST.fetchall()
         feednames=[]
         c=[]
         for x in a:
@@ -465,8 +469,8 @@ class Component(pyxmpp.jabberd.Component):
 
     def checkrss(self, checkfeeds):
         for feed in checkfeeds:
-            self.dbCur.execute("SELECT jid FROM subscribers WHERE feedname='%s'" % (self.dbQuote(feed[0])))
-            jids=self.dbCur.fetchall()
+            self.dbCurUT.execute("SELECT jid FROM subscribers WHERE feedname='%s'" % (self.dbQuote(feed[0])))
+            jids=self.dbCurUT.fetchall()
             if len(jids)==0:
                 continue
             try:
@@ -488,24 +492,24 @@ class Component(pyxmpp.jabberd.Component):
                     time.sleep(0.2)
                 else:
                     pass
-                self.dbCur.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
+                self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
 #                self.db.commit()
             print "End of update"
 # purging old records
-        self.dbCur.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
-        self.dbCur.execute("COMMIT")
+        self.dbCurUT.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
+        self.dbCurUT.execute("COMMIT")
 #        self.db.commit()
         print "End of checkrss"
         self.updating=0
 
     def makeSent(self, feedname, md5sum):
-        self.dbCur.execute("INSERT INTO sent (feedname, md5) VALUES ('%s','%s')" % (self.dbQuote(feedname), md5sum))
-        self.dbCur.execute("COMMIT")
+        self.dbCurUT.execute("INSERT INTO sent (feedname, md5) VALUES ('%s','%s')" % (self.dbQuote(feedname), md5sum))
+        self.dbCurUT.execute("COMMIT")
 #        self.db.commit()
 
     def isSent(self, feedname, md5sum):
-        self.dbCur.execute("SELECT IFNULL(received, count(*)) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
-        a=self.dbCur.fetchone()
+        self.dbCurUT.execute("SELECT IFNULL(received, count(*)) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
+        a=self.dbCurUT.fetchone()
         if a[0]>0:
             return True
         return False
@@ -577,18 +581,18 @@ class Component(pyxmpp.jabberd.Component):
     def presence_control(self, stanza):
         feedname=stanza.get_to().node
         feedname=feedname.encode("utf-8")
-        self.dbCur.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
-        a=self.dbCur.fetchone()
+        self.dbCurPT.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
+        a=self.dbCurPT.fetchone()
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
-                self.dbCur.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
-                if self.dbCur.fetchone()[0]==0:
-                    self.dbCur.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
-                    self.dbCur.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
-                    self.dbCur.execute("COMMIT")
+                self.dbCurPT.execute("SELECT count(*) FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
+                if self.dbCurPT.fetchone()[0]==0:
+                    self.dbCurPT.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
+                    self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
+                    self.dbCurPT.execute("COMMIT")
 #                    self.db.commit()
-                    self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-                    self.dbfeeds=self.dbCur.fetchall()
+                    self.dbCurPT.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+                    self.dbfeeds=self.dbCurPT.fetchall()
                 p=Presence(stanza_type="subscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
@@ -607,10 +611,10 @@ class Component(pyxmpp.jabberd.Component):
 
         if stanza.get_type()=="unsubscribe" or stanza.get_type()=="unsubscribed":
             if self.isFeedNameRegistered(feedname) and a[0]>0:
-                self.dbCur.execute("DELETE FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
-                self.dbCur.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname='%s'" % self.dbQuote(feedname))
-                self.dbCur.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-                self.dbfeeds=self.dbCur.fetchall()
+                self.dbCurPT.execute("DELETE FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
+                self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname='%s'" % self.dbQuote(feedname))
+                self.dbCurPT.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+                self.dbfeeds=self.dbCurPT.fetchall()
                 p=Presence(stanza_type="unsubscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
@@ -619,7 +623,7 @@ class Component(pyxmpp.jabberd.Component):
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
                 self.stream.send(p)
-                self.dbCur.execute("COMMIT")
+                self.dbCurPT.execute("COMMIT")
 #                self.db.commit()
 
 while True:
