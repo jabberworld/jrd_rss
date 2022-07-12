@@ -49,7 +49,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.1.1"
+programmVersion="1.1.2"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -479,7 +479,6 @@ class Component(pyxmpp.jabberd.Component):
                 md5sum=md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
                 feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
-#                    self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
                     self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5) VALUES (TRUE, %s, %s)", (feed[0], md5sum))
                     time.sleep(0.2)
