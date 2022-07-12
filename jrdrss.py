@@ -49,7 +49,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.1.2"
+programmVersion="1.1.3"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -87,7 +87,7 @@ class Component(pyxmpp.jabberd.Component):
     name=NAME.encode("utf-8")
     updating=0
     idleflag=0
-    onliners=[]
+    onliners=[] # isn't used, always empty
     rsslogo='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAACH1BMVEX3hCL3gyH3hCH2gyH2gh/2gR72gh72gyD4oVf6wpP6vIj5snX4pF33lUL2iSz6u4f+/v7+/Pr+9/L97eD82r36vov4n1P6u4b+/v3////+/f3+8+r817j5rWz2jDD++PT82rz4pmD2hib2giD5snf97d798uj+/Pv+9Oz6xZj3kDj2ii73lD/3mkn5tn37z6j96Nf++vb+/fv827/4nE32hCL2hiX3kjz5r3H82bv+///95tT4o1r2iCv3jDL2iSv2hCP5rGv84cn96tr5tHj84837yqH5s3f3mUn2hyj3kTr6xpr+9/H4m036wY////797+T70a34pV/2hyn5tXv+8un82776wI///v7+9e37zaX3l0X5sHH6xJb6wZD85tL5tXz4qGT70q/83sX97+P6x5v+/fz82Lr2iy/3iy73mUf84Mj++/j97+L3kTv84cr++PP4rGr3jzb98uf85M/3lkL5rW381rX4qmf97d/2hyf4nlH2hif3jjT4qmj4oln5sXP4m0z95dH83MH5sXX6voz3kz796tn84cv5snb3kDn97N73lkP70Kz97N383sT3iy/6u4X++vf5rm75uID+9/D6wI7959T3jzf4nE798un6xZf2gyL++PL70q73jTP948371bP3nE36uoT2ii37yZ785dH2iCn83MD2iS397uD5q2r5uYH2hST4pmH6uYP6uYH5q2n5sXT6uYL4nlKE35UjAAACC0lEQVR42qyRA5cjQRDHr7dqpta2bZuxbZ9t27bNz3rdebGe9p/MTONX3rM7YoyVlboHAJRkBFbMnsorKquqa2qhCMOwrr6+obGpuaW1FokVAtraO4Q6u7p7ehEKeuhIqK9/YHCI5QHDI6ONYwlofGIy10kZTE3PVM/OzS/EicWlZcohVkiWJVxdW99oFMTm1jZAtocdhVKFXFNqzZggtNtZPhjp9M0Go8mMQ2ix2uI+7MgyAUdHh7PB5fZ4Ec0+vyACk0OZQLBDKBSORIlUMUEs7h2EDGBfogv1+wdWSHVAROnypIMwOHjosKthUyBH1CtkPnqMr46foPQ0VYMnT82ePiOIsx7Cc+f54sLFjDwZEOKlysuCuHIV8doFvriuhMxWEA2pbtwUeRhuDZ1o5gv/bUzHGLpzdwoI7o2K9O4jPuDhOitTowd4OPfo8RMvqZ42cCIyiM+eizRTMYamX/ASbC8BX+n5xes3OPiWf99NDyVSRJ8w7Hj/gegjr/DTZxm/8O/X+3ICGPoW78H3H4Q/f/E+//4jDfA6zsSkBIA3/grgnxfo/+YvADIWVrEtkpaUlFgMCwnmJUvlJdOWVSszMi+XkUyTXLGSrXSVgJTENLg32Jes5lzTA0wljGvXrd+wfmMNu/amzRs2b0HkAmCOYFFmBocIKOEwAwWAACyCyHwwBpjJBKGpAgAbEWloKH7cQAAAAABJRU5ErkJggg=='
 
     dbCurST = DB() # search thread
@@ -460,8 +460,11 @@ class Component(pyxmpp.jabberd.Component):
             print "Update in progress"
 
     def checkrss(self, checkfeeds):
+        new = {}
         for feed in checkfeeds:
-            self.dbCurUT.execute("SELECT jid FROM subscribers WHERE feedname = %s", (feed[0],))
+            feedname = feed[0]
+            new[feedname] = 0
+            self.dbCurUT.execute("SELECT jid FROM subscribers WHERE feedname = %s", (feedname,))
             jids=self.dbCurUT.fetchall()
             if len(jids)==0:
                 continue
@@ -474,17 +477,20 @@ class Component(pyxmpp.jabberd.Component):
                 continue
             if bozo==1:
                 print "Some problems with feed"
+                new[feedname] = -1
+                self.botstatus(feedname, jids, new) # Send XA status if problems with feed
                 continue
             for i in d["items"]:
                 md5sum=md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
-                feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
                     self.sendItem(feedname, i, jids)
+                    new[feedname] += 1
                     self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5) VALUES (TRUE, %s, %s)", (feed[0], md5sum))
                     time.sleep(0.2)
                 else:
                     self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname = %s AND md5 = %s AND datetime < NOW() - INTERVAL 1 DAY", (feed[0], md5sum))
             print "End of update"
+            self.botstatus(feedname, jids, new)
 # purging old records
         self.dbCurUT.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
         self.dbCurUT.execute("COMMIT")
@@ -497,6 +503,25 @@ class Component(pyxmpp.jabberd.Component):
         if a[0]>0:
             return True
         return False
+
+    def botstatus(self, feedname, jids, new):
+        st=''
+        for feedstr in self.dbfeeds:
+            if feedstr[0] == feedname:
+                desc = str(feedstr[4])
+                users = str(feedstr[5])
+        if new[feedname] == 0:
+            st = None
+        elif new[feedname] < 0:
+            st= "xa"
+        else:
+            st = "chat"
+        for jid in jids:
+            p=Presence(from_jid=unicode(feedname+"@"+self.name, "utf-8"),
+                to_jid=JID(unicode(jid[0], "utf-8")),
+                show=st,
+                status=desc+"\nUsers: "+users+"\nLast updated: "+time.strftime("%d %b %Y %H:%M:%S", time.localtime())+"\nNew messages: "+str(new[feedname]))
+            self.stream.send(p)
 
     def sendItem(self, feedname, i, jids):
         for ii in jids:
@@ -605,7 +630,6 @@ class Component(pyxmpp.jabberd.Component):
                     from_jid=stanza.get_to())
                 self.stream.send(p)
                 self.dbCurPT.execute("COMMIT")
-#                self.db.commit()
 
 while True:
     try:
