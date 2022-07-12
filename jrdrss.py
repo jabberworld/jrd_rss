@@ -284,12 +284,10 @@ class Component(pyxmpp.jabberd.Component):
             ftime=60
         self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES ('%s', '%s', '%s', %s, %s)" % (self.dbQuote(fname),self.dbQuote(furl),self.dbQuote(fdesc), vsubs, ftime))
         self.last_upd[fname] = 0
-        self.dbCurRT.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-        self.dbfeeds=self.dbCurRT.fetchall()
+        self.dbfeeds = self.dbCurRT.dbfeeds()
         if fsubs:
             self.dbCurRT.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(iqres.get_to().bare().as_utf8()),self.dbQuote(fname)))
         self.dbCurRT.execute("COMMIT")
-#        self.db.commit()
         self.stream.send(iqres)
         if fsubs:
             pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname+"@"+self.name, "utf-8")), to_jid=iqres.get_to().bare())
@@ -588,9 +586,7 @@ class Component(pyxmpp.jabberd.Component):
                     self.dbCurPT.execute("INSERT INTO subscribers (jid,feedname) VALUES ('%s','%s')" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                     self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname='%s'" % self.dbQuote(feedname))
                     self.dbCurPT.execute("COMMIT")
-#                    self.db.commit()
-                    self.dbCurPT.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-                    self.dbfeeds=self.dbCurPT.fetchall()
+                    self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="subscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
@@ -611,8 +607,7 @@ class Component(pyxmpp.jabberd.Component):
             if self.isFeedNameRegistered(feedname) and a[0]>0:
                 self.dbCurPT.execute("DELETE FROM subscribers WHERE jid='%s' AND feedname='%s'" % (self.dbQuote(stanza.get_from().bare().as_utf8()),self.dbQuote(feedname)))
                 self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname='%s'" % self.dbQuote(feedname))
-                self.dbCurPT.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
-                self.dbfeeds=self.dbCurPT.fetchall()
+                self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="unsubscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
