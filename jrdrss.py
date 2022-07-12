@@ -487,10 +487,10 @@ class Component(pyxmpp.jabberd.Component):
                 md5sum=md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
                 feedname=feed[0]
                 if not self.isSent(feedname, md5sum):
-                    self.makeSent(feedname, md5sum)
+#                    self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
+                    self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5) VALUES (TRUE, '%s', '%s')" % (self.dbQuote(feed[0]), md5sum))
                     time.sleep(0.2)
-                    self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
                 else:
                     self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s' AND datetime < NOW() - INTERVAL 1 DAY" % (self.dbQuote(feed[0]), md5sum))
             print "End of update"
@@ -500,10 +500,10 @@ class Component(pyxmpp.jabberd.Component):
         print "End of checkrss"
         self.updating=0
 
-    def makeSent(self, feedname, md5sum):
-        self.dbCurUT.execute("INSERT INTO sent (feedname, md5) VALUES ('%s','%s')" % (self.dbQuote(feedname), md5sum))
-        self.dbCurUT.execute("COMMIT")
-#        self.db.commit()
+#    def makeSent(self, feedname, md5sum):
+#        self.dbCurUT.execute("INSERT INTO sent (feedname, md5) VALUES ('%s','%s')" % (self.dbQuote(feedname), md5sum))
+#        self.dbCurUT.execute("COMMIT")
+##        self.db.commit()
 
     def isSent(self, feedname, md5sum):
         self.dbCurUT.execute("SELECT IFNULL(received, count(*)) FROM sent WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feedname), md5sum))
