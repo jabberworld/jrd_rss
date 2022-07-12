@@ -490,15 +490,13 @@ class Component(pyxmpp.jabberd.Component):
                     self.makeSent(feedname, md5sum)
                     self.sendItem(feedname, i, jids)
                     time.sleep(0.2)
+                    self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
                 else:
-                    pass
-                self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s'" % (self.dbQuote(feed[0]), md5sum))
-#                self.db.commit()
+                    self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname='%s' AND md5='%s' AND datetime < NOW() - INTERVAL 1 DAY" % (self.dbQuote(feed[0]), md5sum))
             print "End of update"
 # purging old records
         self.dbCurUT.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
         self.dbCurUT.execute("COMMIT")
-#        self.db.commit()
         print "End of checkrss"
         self.updating=0
 
