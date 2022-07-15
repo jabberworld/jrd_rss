@@ -358,12 +358,9 @@ class Component(pyxmpp.jabberd.Component):
             return
         self.dbCurST.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE %s OR description LIKE %s OR url LIKE %s", (searchField, searchField, searchField))
         a=self.dbCurST.fetchall()
-        feednames=[]
-        c=[]
-        for x in a:
-            feednames.append(x[0])
-            c.append(x)
-        print c, feednames
+
+        print a
+
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:search")
 
@@ -402,7 +399,7 @@ class Component(pyxmpp.jabberd.Component):
         reportedTime.setProp("type","text-single")
         reportedTime.setProp("label","Update interval")
 
-        for d in c:
+        for d in a:
             item=form.newChild(None,"item",None)
             jidField=item.newChild(None,"field",None)
             jidField.setProp("var","jid")
