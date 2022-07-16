@@ -291,14 +291,12 @@ class Component(pyxmpp.jabberd.Component):
             self.stream.send(pres)
 
     def get_vCard(self,iq):
-        if iq.get_to().as_utf8() != self.name:
-            feedvcard=1
-        else:
-            feedvcard=0
-        iq=iq.make_result_response()
-        q=iq.xmlnode.newChild(None,"vCard",None)
+
+        iqmr=iq.make_result_response()
+        q=iqmr.xmlnode.newChild(None,"vCard",None)
         q.setProp("xmlns","vcard-temp")
-        if not feedvcard:
+
+        if iq.get_to().as_utf8() == self.name:
             q.newTextChild(None,"FN","JRD RSS Transport")
             q.newTextChild(None,"NICKNAME","RSS")
             q.newTextChild(None,"DESC","RSS transport component")
@@ -309,7 +307,7 @@ class Component(pyxmpp.jabberd.Component):
             transav.newTextChild(None, "BINVAL", self.rsslogo)
             transav.newTextChild(None, "TYPE", 'image/png')
         else:
-            nick=iq.get_from().node.encode("utf-8")
+            nick=iqmr.get_from().node.encode("utf-8")
             for feedstr in self.dbfeeds:
                 if feedstr[0] == nick:
                     url = feedstr[1]
@@ -325,7 +323,7 @@ class Component(pyxmpp.jabberd.Component):
                     feedav=q.newTextChild(None,"PHOTO", None)
                     feedav.newTextChild(None, "BINVAL", self.rsslogo)
                     feedav.newTextChild(None, "TYPE", 'image/png')
-        self.stream.send(iq)
+        self.stream.send(iqmr)
         return 1
 
     def get_search(self,iq):
