@@ -60,4 +60,4 @@
 
 ----
 
-JabberWorld
+JabberWorld, https://jabberworld.info
