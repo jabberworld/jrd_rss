@@ -103,7 +103,7 @@ class Component(pyxmpp.jabberd.Component):
 #    print dbfeeds
 
     def isFeedNameRegistered(self, feedname):
-        self.dbCurRT.execute("SELECT count(*) FROM feeds WHERE feedname = %s", (feedname,))
+        self.dbCurRT.execute("SELECT count(feedname) FROM feeds WHERE feedname = %s", (feedname,))
         a=self.dbCurRT.fetchone()
         if not a:
             return False
@@ -113,7 +113,7 @@ class Component(pyxmpp.jabberd.Component):
             return True
 
     def isFeedUrlRegistered(self, furl):
-        self.dbCurRT.execute("SELECT count(*) FROM feeds WHERE url = %s", (furl,))
+        self.dbCurRT.execute("SELECT count(feedname) FROM feeds WHERE url = %s", (furl,))
         a=self.dbCurRT.fetchone()
         if not a:
             return False
@@ -510,7 +510,7 @@ class Component(pyxmpp.jabberd.Component):
         self.updating=0
 
     def isSent(self, feedname, md5sum):
-        self.dbCurUT.execute("SELECT IFNULL(received, count(*)) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
+        self.dbCurUT.execute("SELECT IFNULL(received, count(received)) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
         a=self.dbCurUT.fetchone()
         if a[0]>0:
             return True
@@ -628,11 +628,11 @@ class Component(pyxmpp.jabberd.Component):
     def presence_control(self, stanza):
         feedname=stanza.get_to().node
         feedname=feedname.encode("utf-8")
-        self.dbCurPT.execute("SELECT count(*) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
+        self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
         a=self.dbCurPT.fetchone()
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
-                self.dbCurPT.execute("SELECT count(*) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
+                self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
                 if self.dbCurPT.fetchone()[0]==0:
                     self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (stanza.get_from().bare().as_utf8(), feedname))
                     self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname = %s", (feedname,))
