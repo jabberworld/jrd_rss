@@ -49,7 +49,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.1.5"
+programmVersion="1.2"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -72,7 +72,7 @@ class DB:
         return self.cursor
 
     def dbfeeds(self):
-        self.execute("SELECT feedname, url, timeout, regdate, description, subscribers FROM feeds")
+        self.execute("SELECT feedname, url, timeout, regdate, description, subscribers, private FROM feeds")
         return self.cursor.fetchall()
 
     def fetchone(self):
@@ -157,10 +157,11 @@ class Component(pyxmpp.jabberd.Component):
 
         if node=="feeds":
             for i in self.dbfeeds:
-                name = unicode(i[0], "utf-8")
-                desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
-                newjid = JID(name, self.name)
-                item = DiscoItem(disco_items, newjid, name=desc, node=None)
+                if not i[6]:
+                    name = unicode(i[0], "utf-8")
+                    desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
+                    newjid = JID(name, self.name)
+                    item = DiscoItem(disco_items, newjid, name=desc, node=None)
         return disco_items
 
     def disco_get_items(self, node, iq):
@@ -210,6 +211,12 @@ class Component(pyxmpp.jabberd.Component):
         checkBox.setProp("label","Subscribe")
         value=checkBox.newTextChild(None,"value","1")
 
+        checkBox=form.newChild(None,"field",None)
+        checkBox.setProp("type","boolean")
+        checkBox.setProp("var","private")
+        checkBox.setProp("label","Private")
+        value=checkBox.newTextChild(None,"value","0")
+
 # https://xmpp.org/extensions/xep-0004.html
         tmup=form.newChild(None, "field", None)
         tmup.setProp("type", "list-single")
@@ -232,6 +239,7 @@ class Component(pyxmpp.jabberd.Component):
         furl=iq.xpath_eval("//r:field[@var='url']/r:value",{"r":"jabber:x:data"})
         fdesc=iq.xpath_eval("//r:field[@var='desc']/r:value",{"r":"jabber:x:data"})
         fsubs=iq.xpath_eval("//r:field[@var='tosubscribe']/r:value",{"r":"jabber:x:data"})
+        fpriv=iq.xpath_eval("//r:field[@var='private']/r:value",{"r":"jabber:x:data"})
         ftime=iq.xpath_eval("//r:field[@var='timeout']/r:value",{"r":"jabber:x:data"})
         if fname and furl and fdesc:
             fname=fname[0].getContent().lower()
@@ -255,15 +263,17 @@ class Component(pyxmpp.jabberd.Component):
             fsubs=False
         if ftime:
             ftime=int(ftime[0].getContent())
+        if fpriv:
+            fpriv=int(fpriv[0].getContent())
         if self.isFeedNameRegistered(fname):
             self.stream.send(iq.make_error_response("conflict"))
             return
         if self.isFeedUrlRegistered(furl):
             self.stream.send(iq.make_error_response("conflict"))
             return
-        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime,))
+        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime,fpriv,))
 
-    def regThread(self, iqres, iqerr, fname, furl, fdesc, fsubs, ftime):
+    def regThread(self, iqres, iqerr, fname, furl, fdesc, fsubs, ftime, fpriv):
         try:
             d=feedparser.parse(furl)
             bozo=d["bozo"]
@@ -279,7 +289,7 @@ class Component(pyxmpp.jabberd.Component):
         ftime=ftime*60
         if ftime<60:
             ftime=60
-        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout) VALUES (%s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime))
+        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private) VALUES (%s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime, fpriv))
         self.last_upd[fname] = 0
         self.dbfeeds = self.dbCurRT.dbfeeds()
         if fsubs:
@@ -354,7 +364,7 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        self.dbCurST.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE feedname LIKE %s OR description LIKE %s OR url LIKE %s", (searchField, searchField, searchField))
+        self.dbCurST.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE (feedname LIKE %s OR description LIKE %s OR url LIKE %s) AND private = '0'", (searchField, searchField, searchField))
         a=self.dbCurST.fetchall()
 
         print a
