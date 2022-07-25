@@ -1,0 +1,1 @@
+ALTER TABLE feeds ADD registrar varchar(128) DEFAULT NULL AFTER private;
