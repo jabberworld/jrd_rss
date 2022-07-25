@@ -49,7 +49,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.3"
+programmVersion="1.3.1"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -151,12 +151,29 @@ class Component(pyxmpp.jabberd.Component):
 
     def browseitems(self, iq=None, node=None):
         disco_items=DiscoItems()
+        fromjid = iq.get_from().bare().as_utf8()
         if node == None and iq.get_to().node == None:
             newjid = JID(domain=self.name)
             item = DiscoItem(disco_items, newjid, name="Registered Feeds", node="feeds")
+            item = DiscoItem(disco_items, newjid, name="I am registrar",   node="owner")
+            item = DiscoItem(disco_items, newjid, name="My private feeds", node="private")
         if node=="feeds":
             for i in self.dbfeeds:
-                if not i[6] or (i[6] == 1 and iq.get_from().bare().as_utf8() == i[7]):
+                if not i[6] or (i[6] == 1 and fromjid == i[7]):
+                    name = unicode(i[0], "utf-8")
+                    desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
+                    newjid = JID(name, self.name)
+                    item = DiscoItem(disco_items, newjid, name=desc, node=None)
+        elif node=="owner":
+            for i in self.dbfeeds:
+                if fromjid == i[7]:
+                    name = unicode(i[0], "utf-8")
+                    desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
+                    newjid = JID(name, self.name)
+                    item = DiscoItem(disco_items, newjid, name=desc, node=None)
+        elif node=="private":
+            for i in self.dbfeeds:
+                if i[6] == 1 and fromjid == i[7]:
                     name = unicode(i[0], "utf-8")
                     desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
                     newjid = JID(name, self.name)
