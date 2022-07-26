@@ -189,10 +189,10 @@ class Component(pyxmpp.jabberd.Component):
                 name = unicode(tag.replace(' ',''), "utf-8")
                 desc = unicode(tag, "utf-8")
                 newjid = JID(domain=self.name)
-                item = DiscoItem(disco_items, newjid, name=desc, node="tag_"+name)
+                item = DiscoItem(disco_items, newjid, name=desc, node="tag:"+name)
         else:
             for tag in feedtags:
-                if node == 'tag_'+unicode(tag.replace(' ',''), "utf-8"):
+                if node == 'tag:'+unicode(tag.replace(' ',''), "utf-8"):
                     for feed in feedtags[tag]:
                         if not feed[2] or (feed[2] == 1 and fromjid == feed[3]):
                             self.mknode(disco_items, feed[0], feed[1])
@@ -288,7 +288,7 @@ class Component(pyxmpp.jabberd.Component):
         else:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
-        if fname=='' or furl=='' or fdesc=='' or fname.find("@")!=-1 or fname.find(" ")!=-1 or fname.find("'")!=-1 or fname.find("/")!=-1 or fname.find("\\")!=-1 or (furl.find("http://")!=0 and furl.find("https://")!=0):
+        if fname=='' or furl=='' or fdesc=='' or fname.find(':')!=-1 or fname.find('&')!=-1 or fname.find('>')!=-1 or fname.find('<')!=-1 or fname.find("@")!=-1 or fname.find(" ")!=-1 or fname.find("'")!=-1 or fname.find("/")!=-1 or fname.find('"')!=-1 or fname.find("\\")!=-1 or (furl.find("http://")!=0 and furl.find("https://")!=0):
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
         domain=urlparse.urlparse(furl)[1]
