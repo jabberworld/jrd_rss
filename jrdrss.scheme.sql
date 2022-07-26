@@ -2,9 +2,11 @@ CREATE TABLE IF NOT EXISTS feeds (
 feedname varchar(255) NOT NULL,
 url varchar(255) NOT NULL,
 description varchar(255) NOT NULL,
+tags varchar(255) DEFAULT NULL;
 subscribers INT NOT NULL DEFAULT 0,
 timeout INT NOT NULL DEFAULT 3600,
 private boolean DEFAULT false,
+registrar varchar(128) DEFAULT NULL,
 regdate TIMESTAMP NOT NULL DEFAULT NOW()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE utf8_unicode_ci;
 
