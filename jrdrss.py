@@ -149,15 +149,15 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_presence_handler("unsubscribe",self.presence_control)
         self.stream.set_presence_handler("unsubscribed",self.presence_control)
 
+    def mknode(self, disco_items, name, desc):
+        nodename = unicode(name, "utf-8")
+        nodedesc = unicode(name+" ("+desc+")", "utf-8")
+        newjid = JID(nodename, self.name)
+        item = DiscoItem(disco_items, newjid, name=nodedesc, node=None)
+
     def browseitems(self, iq=None, node=None):
         disco_items=DiscoItems()
         fromjid = iq.get_from().bare().as_utf8()
-        if node == None and iq.get_to().node == None:
-            newjid = JID(domain=self.name)
-            item = DiscoItem(disco_items, newjid, name="Registered Feeds",  node="feeds")
-            item = DiscoItem(disco_items, newjid, name="I am registrar",    node="owner")
-            item = DiscoItem(disco_items, newjid, name="My private feeds",  node="private")
-            item = DiscoItem(disco_items, newjid, name="Categories",        node="tags")
         feedtags = {}
         for i in self.dbfeeds:
             if i[8]:
@@ -166,42 +166,36 @@ class Component(pyxmpp.jabberd.Component):
                     if not feedtags.has_key(tag):
                         feedtags[tag] = list()
                     feedtags[tag].append((i[0], i[4], i[6], i[7]))
+        if node == None and iq.get_to().node == None:
+            newjid = JID(domain=self.name)
+            item = DiscoItem(disco_items, newjid, name="Registered Feeds",  node="feeds")
+            item = DiscoItem(disco_items, newjid, name="I am registrar",    node="owner")
+            item = DiscoItem(disco_items, newjid, name="My private feeds",  node="private")
+            item = DiscoItem(disco_items, newjid, name="Categories",        node="tags")
         if node=="feeds":
             for i in self.dbfeeds:
                 if not i[6] or (i[6] == 1 and fromjid == i[7]):
-                    name = unicode(i[0], "utf-8")
-                    desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
-                    newjid = JID(name, self.name)
-                    item = DiscoItem(disco_items, newjid, name=desc, node=None)
+                    self.mknode(disco_items, i[0], i[4])
         elif node=="owner":
             for i in self.dbfeeds:
                 if fromjid == i[7]:
-                    name = unicode(i[0], "utf-8")
-                    desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
-                    newjid = JID(name, self.name)
-                    item = DiscoItem(disco_items, newjid, name=desc, node=None)
+                    self.mknode(disco_items, i[0], i[4])
         elif node=="private":
             for i in self.dbfeeds:
                 if i[6] == 1 and fromjid == i[7]:
-                    name = unicode(i[0], "utf-8")
-                    desc = unicode(i[0]+" ("+i[4]+")", "utf-8")
-                    newjid = JID(name, self.name)
-                    item = DiscoItem(disco_items, newjid, name=desc, node=None)
+                    self.mknode(disco_items, i[0], i[4])
         elif node=="tags":
             for tag in sorted(feedtags):
-                name = unicode(re.sub(' ', '', tag), "utf-8")
+                name = unicode(tag.replace(' ',''), "utf-8")
                 desc = unicode(tag, "utf-8")
                 newjid = JID(domain=self.name)
                 item = DiscoItem(disco_items, newjid, name=desc, node="tag_"+name)
         else:
             for tag in feedtags:
-                if node == 'tag_'+unicode(re.sub(' ', '', tag), "utf-8"):
+                if node == 'tag_'+unicode(tag.replace(' ',''), "utf-8"):
                     for feed in feedtags[tag]:
                         if not feed[2] or (feed[2] == 1 and fromjid == feed[3]):
-                            name = unicode(feed[0], "utf-8")
-                            desc = unicode(feed[0]+" ("+feed[1]+")", "utf-8")
-                            newjid = JID(name, self.name)
-                            item = DiscoItem(disco_items, newjid, name=desc, node=None)
+                            self.mknode(disco_items, feed[0], feed[1])
         return disco_items
 
     def disco_get_items(self, node, iq):
