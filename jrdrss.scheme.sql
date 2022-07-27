@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS feeds (
 feedname varchar(255) NOT NULL,
 url varchar(255) NOT NULL,
 description varchar(255) NOT NULL,
-tags varchar(255) DEFAULT NULL;
+tags varchar(255) DEFAULT NULL,
 subscribers INT NOT NULL DEFAULT 0,
 timeout INT NOT NULL DEFAULT 3600,
 private boolean DEFAULT false,
