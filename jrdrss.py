@@ -49,7 +49,7 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.4"
+programmVersion="1.4.1"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -570,7 +570,7 @@ class Component(pyxmpp.jabberd.Component):
         self.updating=0
 
     def isSent(self, feedname, md5sum):
-        self.dbCurUT.execute("SELECT IFNULL(received, count(received)) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
+        self.dbCurUT.execute("SELECT count(received) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
         a=self.dbCurUT.fetchone()
         if a[0]>0:
             return True

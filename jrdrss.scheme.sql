@@ -23,5 +23,5 @@ CREATE TABLE IF NOT EXISTS sent (
 received boolean DEFAULT false,
 md5 varchar(32),
 feedname varchar(255),
-datetime TIMESTAMP NOT NULL
+datetime TIMESTAMP NOT NULL DEFAULT NOW() ON UPDATE NOW()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE utf8_unicode_ci;
