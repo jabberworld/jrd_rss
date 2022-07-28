@@ -163,6 +163,7 @@ class Component(pyxmpp.jabberd.Component):
             if i[8]:
                 tags = i[8].split(',')
                 for tag in tags:
+                    tag = unicode(tag, 'utf-8').lower().encode('utf-8')
                     if not feedtags.has_key(tag):
                         feedtags[tag] = list()
                     feedtags[tag].append((i[0], i[4], i[6], i[7]))
@@ -187,7 +188,7 @@ class Component(pyxmpp.jabberd.Component):
         elif node=="tags":
             for tag in sorted(feedtags):
                 name = unicode(tag.replace(' ',''), "utf-8")
-                desc = unicode(tag, "utf-8")
+                desc = unicode(tag, "utf-8").capitalize()
                 newjid = JID(domain=self.name)
                 item = DiscoItem(disco_items, newjid, name=desc, node="tag:"+name)
         else:
@@ -306,7 +307,7 @@ class Component(pyxmpp.jabberd.Component):
         if fpriv:
             fpriv = int(fpriv[0].getContent())
         if ftags:
-            ftags = ftags[0].getContent().lower()
+            ftags = unicode(ftags[0].getContent(), 'utf-8').lower()
             ftags = re.sub('^ *', '', ftags)
             ftags = re.sub(' *$', '', ftags)
             ftags = re.sub(' *, *', ',', ftags)
@@ -606,11 +607,10 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
-                try:
-                    if i["author"] != None:
-                        author = " (by "+i["author"].encode("utf-8")+")"
-                except:
-                    author = ""
+            if i.has_key("author"):
+                author = " (by "+i["author"].encode("utf-8")+")"
+            else:
+                author = ""
 # i["title"] and i["link"] - unicode obj
 # Conversations doesnt support subject for messages, so all data moved to body:
             m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
