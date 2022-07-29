@@ -49,7 +49,9 @@ HOST =  dom.getElementsByTagName("host")[0].childNodes[0].data
 PORT =  dom.getElementsByTagName("port")[0].childNodes[0].data
 PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
-programmVersion="1.4.1"
+ADAPTIVE = dom.getElementsByTagName("adaptive")[0].childNodes[0].data
+
+programmVersion="1.4.2"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -90,7 +92,7 @@ class Component(pyxmpp.jabberd.Component):
     times = {} # array of timestamps of new messages
     new = {} # new daily messages counter
     lasthournew = {} # new hourly messages counter
-    onliners = [] # isn't used, always empty
+    adaptive = ADAPTIVE
     rsslogo='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAACH1BMVEX3hCL3gyH3hCH2gyH2gh/2gR72gh72gyD4oVf6wpP6vIj5snX4pF33lUL2iSz6u4f+/v7+/Pr+9/L97eD82r36vov4n1P6u4b+/v3////+/f3+8+r817j5rWz2jDD++PT82rz4pmD2hib2giD5snf97d798uj+/Pv+9Oz6xZj3kDj2ii73lD/3mkn5tn37z6j96Nf++vb+/fv827/4nE32hCL2hiX3kjz5r3H82bv+///95tT4o1r2iCv3jDL2iSv2hCP5rGv84cn96tr5tHj84837yqH5s3f3mUn2hyj3kTr6xpr+9/H4m036wY////797+T70a34pV/2hyn5tXv+8un82776wI///v7+9e37zaX3l0X5sHH6xJb6wZD85tL5tXz4qGT70q/83sX97+P6x5v+/fz82Lr2iy/3iy73mUf84Mj++/j97+L3kTv84cr++PP4rGr3jzb98uf85M/3lkL5rW381rX4qmf97d/2hyf4nlH2hif3jjT4qmj4oln5sXP4m0z95dH83MH5sXX6voz3kz796tn84cv5snb3kDn97N73lkP70Kz97N383sT3iy/6u4X++vf5rm75uID+9/D6wI7959T3jzf4nE798un6xZf2gyL++PL70q73jTP948371bP3nE36uoT2ii37yZ785dH2iCn83MD2iS397uD5q2r5uYH2hST4pmH6uYP6uYH5q2n5sXT6uYL4nlKE35UjAAACC0lEQVR42qyRA5cjQRDHr7dqpta2bZuxbZ9t27bNz3rdebGe9p/MTONX3rM7YoyVlboHAJRkBFbMnsorKquqa2qhCMOwrr6+obGpuaW1FokVAtraO4Q6u7p7ehEKeuhIqK9/YHCI5QHDI6ONYwlofGIy10kZTE3PVM/OzS/EicWlZcohVkiWJVxdW99oFMTm1jZAtocdhVKFXFNqzZggtNtZPhjp9M0Go8mMQ2ix2uI+7MgyAUdHh7PB5fZ4Ec0+vyACk0OZQLBDKBSORIlUMUEs7h2EDGBfogv1+wdWSHVAROnypIMwOHjosKthUyBH1CtkPnqMr46foPQ0VYMnT82ePiOIsx7Cc+f54sLFjDwZEOKlysuCuHIV8doFvriuhMxWEA2pbtwUeRhuDZ1o5gv/bUzHGLpzdwoI7o2K9O4jPuDhOitTowd4OPfo8RMvqZ42cCIyiM+eizRTMYamX/ASbC8BX+n5xes3OPiWf99NDyVSRJ8w7Hj/gegjr/DTZxm/8O/X+3ICGPoW78H3H4Q/f/E+//4jDfA6zsSkBIA3/grgnxfo/+YvADIWVrEtkpaUlFgMCwnmJUvlJdOWVSszMi+XkUyTXLGSrXSVgJTENLg32Jes5lzTA0wljGvXrd+wfmMNu/amzRs2b0HkAmCOYFFmBocIKOEwAwWAACyCyHwwBpjJBKGpAgAbEWloKH7cQAAAAABJRU5ErkJggg=='
 
     dbCurST = DB() # search thread
@@ -503,8 +505,16 @@ class Component(pyxmpp.jabberd.Component):
         checkfeeds=[]
         if not self.updating:
             for feed in self.dbfeeds:
+                if self.adaptive and self.lasthournew.has_key(feed[0]) and self.lasthournew[feed[0]] > 0:
+					upd = int(3600/self.lasthournew[feed[0]])
+					if upd < 60:
+					    upd = 60
+					elif upd > feed[2]:
+					    upd = int(feed[2])
+                else:
+                    upd = int(feed[2])
                 try:
-                    if (nowTime-int(self.last_upd[feed[0]])) > int(feed[2]):
+                    if (nowTime-int(self.last_upd[feed[0]])) > upd:
                         self.last_upd[feed[0]]=nowTime
                         checkfeeds.append((feed[0], feed[1],))
                 except:
@@ -638,9 +648,6 @@ class Component(pyxmpp.jabberd.Component):
         else:
             feedname=feedname.encode("utf-8")
         if stanza.get_type()=="unavailable" and self.isFeedNameRegistered(feedname):
-            if not fr in self.onliners:
-                return None
-            del self.onliners[self.onliners.index(fr)]
             p=Presence(from_jid=stanza.get_to(),to_jid=stanza.get_from(),stanza_type="unavailable")
             self.stream.send(p)
         if stanza.get_type()=="available" or stanza.get_type()==None:
