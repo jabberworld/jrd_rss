@@ -51,7 +51,7 @@ PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
 ADAPTIVE = dom.getElementsByTagName("adaptive")[0].childNodes[0].data
 
-programmVersion="1.4.3"
+programmVersion="1.4.4"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -340,8 +340,8 @@ class Component(pyxmpp.jabberd.Component):
         self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime, fpriv, registrar, ftags))
         self.last_upd[fname] = 0
         self.dbfeeds = self.dbCurRT.dbfeeds()
-        if fsubs:
-            self.dbCurRT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (iqres.get_to().bare(), fname))
+#        if fsubs:
+#            self.dbCurRT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (iqres.get_to().bare(), fname))
         self.dbCurRT.execute("COMMIT")
         self.stream.send(iqres)
         if fsubs:
@@ -614,6 +614,7 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&amp;","&")
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
+                summary = unicode(summary, 'utf-8')
             if i.has_key("author"):
                 author = u" (by "+i["author"]+u")"
             else:
@@ -622,8 +623,8 @@ class Component(pyxmpp.jabberd.Component):
 # Conversations doesnt support subject for messages, so all data moved to body:
             m=Message(to_jid=JID(ii[0]),
                 from_jid=feedname+"@"+self.name,
-                stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-                body=u"*"+i["title"]+"*\nLink: "+i["link"]+author+u"\n\n"+unicode(summary, 'utf-8')+u"\n\n")
+                stanza_type='chat', # was headline # can be "normal","chat","headline","error","groupchat"
+                body=u"*"+i["title"]+"*\nLink: "+i["link"]+author+u"\n\n"+summary+u"\n\n")
 # You can use separate subject for normal clients and for headline type of messages
 #            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
 #                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
@@ -695,12 +696,10 @@ class Component(pyxmpp.jabberd.Component):
         a=self.dbCurPT.fetchone()
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
-                self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
-                if self.dbCurPT.fetchone()[0]==0:
-                    self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (stanza.get_from().bare(), feedname))
-                    self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname = %s", (feedname,))
-                    self.dbCurPT.execute("COMMIT")
-                    self.dbfeeds = self.dbCurPT.dbfeeds()
+                self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (stanza.get_from().bare(), feedname))
+                self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname = %s", (feedname,))
+                self.dbCurPT.execute("COMMIT")
+                self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="subscribe",
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
@@ -721,6 +720,7 @@ class Component(pyxmpp.jabberd.Component):
             if self.isFeedNameRegistered(feedname) and a[0]>0:
                 self.dbCurPT.execute("DELETE FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
                 self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname = %s", (feedname,))
+                self.dbCurPT.execute("COMMIT")
                 self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="unsubscribe",
                     to_jid=stanza.get_from().bare(),
@@ -730,7 +730,6 @@ class Component(pyxmpp.jabberd.Component):
                     to_jid=stanza.get_from().bare(),
                     from_jid=stanza.get_to())
                 self.stream.send(p)
-                self.dbCurPT.execute("COMMIT")
 
 while True:
     try:
