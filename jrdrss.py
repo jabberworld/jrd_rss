@@ -51,7 +51,7 @@ PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
 ADAPTIVE = dom.getElementsByTagName("adaptive")[0].childNodes[0].data
 
-programmVersion="1.4.2"
+programmVersion="1.4.3"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -61,7 +61,7 @@ class DB:
     cursor = None
 
     def connect(self):
-        self.conn = MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=False)
+        self.conn = MySQLdb.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, autocommit=False, use_unicode=True, charset="utf8mb4")
         self.cursor = self.conn.cursor()
 
     def execute(self, sql, param=None):
@@ -86,7 +86,7 @@ class DB:
 class Component(pyxmpp.jabberd.Component):
     start_time = int(time.time())
     last_upd = {} # array of last update feeds time
-    name = NAME.encode("utf-8")
+    name = NAME
     updating = 0 # flag to block parallel updates
     idleflag = 0
     times = {} # array of timestamps of new messages
@@ -152,20 +152,19 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_presence_handler("unsubscribed",self.presence_control)
 
     def mknode(self, disco_items, name, desc):
-        nodename = unicode(name, "utf-8")
-        nodedesc = unicode(name+" ("+desc+")", "utf-8")
-        newjid = JID(nodename, self.name)
-        item = DiscoItem(disco_items, newjid, name=nodedesc, node=None)
+        desc = name+" ("+desc+")"
+        newjid = JID(name, self.name)
+        item = DiscoItem(disco_items, newjid, name=desc, node=None)
 
     def browseitems(self, iq=None, node=None):
         disco_items=DiscoItems()
-        fromjid = iq.get_from().bare().as_utf8()
+        fromjid = iq.get_from().bare()
         feedtags = {}
         for i in self.dbfeeds:
             if i[8]:
                 tags = i[8].split(',')
                 for tag in tags:
-                    tag = unicode(tag, 'utf-8').lower().encode('utf-8')
+                    tag = tag.lower()
                     if not feedtags.has_key(tag):
                         feedtags[tag] = list()
                     feedtags[tag].append((i[0], i[4], i[6], i[7]))
@@ -189,13 +188,13 @@ class Component(pyxmpp.jabberd.Component):
                     self.mknode(disco_items, i[0], i[4])
         elif node=="tags":
             for tag in sorted(feedtags):
-                name = unicode(tag.replace(' ',''), "utf-8")
-                desc = unicode(tag, "utf-8").capitalize()
+                name = tag.replace(' ','')
+                desc = tag.capitalize()
                 newjid = JID(domain=self.name)
                 item = DiscoItem(disco_items, newjid, name=desc, node="tag:"+name)
         else:
             for tag in feedtags:
-                if node == 'tag:'+unicode(tag.replace(' ',''), "utf-8"):
+                if node == 'tag:'+tag.replace(' ',''):
                     for feed in feedtags[tag]:
                         if not feed[2] or (feed[2] == 1 and fromjid == feed[3]):
                             self.mknode(disco_items, feed[0], feed[1])
@@ -205,7 +204,7 @@ class Component(pyxmpp.jabberd.Component):
         return self.browseitems(iq, node)
 
     def get_last(self, iq):
-        if iq.get_to().as_utf8() != self.name:
+        if iq.get_to() != self.name:
             return 0
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:last")
@@ -214,7 +213,7 @@ class Component(pyxmpp.jabberd.Component):
         return 1
 
     def get_register(self,iq):
-        if iq.get_to().as_utf8() != self.name:
+        if iq.get_to() != self.name:
             self.stream.send(iq.make_error_response("feature-not-implemented"))
             return
         iq=iq.make_result_response()
@@ -273,7 +272,7 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.send(iq)
 
     def set_register(self,iq):
-        if iq.get_to().as_utf8() != self.name:
+        if iq.get_to() != self.name:
             self.stream.send(iq.make_error_response("feature-not-implemented"))
             return
 
@@ -309,17 +308,14 @@ class Component(pyxmpp.jabberd.Component):
         if fpriv:
             fpriv = int(fpriv[0].getContent())
         if ftags:
-            ftags = unicode(ftags[0].getContent(), 'utf-8').lower()
+            ftags = ftags[0].getContent().lower()
             ftags = re.sub('^ *', '', ftags)
             ftags = re.sub(' *$', '', ftags)
             ftags = re.sub(' *, *', ',', ftags)
             if len(ftags) > 255:
                 self.stream.send(iq.make_error_response("not-acceptable"))
                 return
-        if self.isFeedNameRegistered(fname):
-            self.stream.send(iq.make_error_response("conflict"))
-            return
-        if self.isFeedUrlRegistered(furl):
+        if self.isFeedNameRegistered(fname) or self.isFeedUrlRegistered(furl):
             self.stream.send(iq.make_error_response("conflict"))
             return
         thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime,fpriv,ftags,))
@@ -345,11 +341,11 @@ class Component(pyxmpp.jabberd.Component):
         self.last_upd[fname] = 0
         self.dbfeeds = self.dbCurRT.dbfeeds()
         if fsubs:
-            self.dbCurRT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (iqres.get_to().bare().as_utf8(), fname))
+            self.dbCurRT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (iqres.get_to().bare(), fname))
         self.dbCurRT.execute("COMMIT")
         self.stream.send(iqres)
         if fsubs:
-            pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname+"@"+self.name, "utf-8")), to_jid=iqres.get_to().bare())
+            pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname, 'utf-8')+u"@"+self.name), to_jid=iqres.get_to().bare())
             self.stream.send(pres)
 
     def get_vCard(self,iq):
@@ -358,7 +354,7 @@ class Component(pyxmpp.jabberd.Component):
         q=iqmr.xmlnode.newChild(None,"vCard",None)
         q.setProp("xmlns","vcard-temp")
 
-        if iq.get_to().as_utf8() == self.name:
+        if iq.get_to() == self.name:
             q.newTextChild(None,"FN","JRD RSS Transport")
             q.newTextChild(None,"NICKNAME","RSS")
             q.newTextChild(None,"DESC","RSS transport component")
@@ -369,19 +365,19 @@ class Component(pyxmpp.jabberd.Component):
             transav.newTextChild(None, "BINVAL", self.rsslogo)
             transav.newTextChild(None, "TYPE", 'image/png')
         else:
-            nick=iqmr.get_from().node.encode("utf-8")
+            nick=iqmr.get_from().node
             for feedstr in self.dbfeeds:
                 if feedstr[0] == nick:
                     url = feedstr[1]
-                    bday = str(feedstr[3])
-                    description = str(feedstr[4]+".\nFeed update interval: "+str(feedstr[2]/60)+" mins\nFeed subscribers: "+str(feedstr[5]))
+                    bday = feedstr[3]
+                    description = feedstr[4]+u".\nFeed update interval: "+str(feedstr[2]/60)+u" mins\nFeed subscribers: "+str(feedstr[5])
 # Tried to use favicon.ico from site as EXTVAL in PHOTO, but no luck - no support for EXTVAL in clients (tried Psi, Gajim, Conversations)
 #                    favicon=urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/favicon.ico"
 
-                    q.newTextChild(None,"NICKNAME", nick)
-                    q.newTextChild(None,"DESC", description)
-                    q.newTextChild(None,"URL", url)
-                    q.newTextChild(None,"BDAY", bday)
+                    q.newTextChild(None,"NICKNAME", nick.encode('utf-8'))
+                    q.newTextChild(None,"DESC", description.encode('utf-8'))
+                    q.newTextChild(None,"URL", url.encode('utf-8'))
+                    q.newTextChild(None,"BDAY", str(bday))
                     feedav=q.newTextChild(None,"PHOTO", None)
                     feedav.newTextChild(None, "BINVAL", self.rsslogo)
                     feedav.newTextChild(None, "TYPE", 'image/png')
@@ -408,7 +404,7 @@ class Component(pyxmpp.jabberd.Component):
         return 1
 
     def set_search(self, iq):
-        fromjid = iq.get_from().bare().as_utf8()
+        fromjid = iq.get_from().bare()
         searchField=iq.xpath_eval("//r:field[@var='searchField']/r:value",{"r":"jabber:x:data"})
         if searchField:
             searchField='%'+searchField[0].getContent().replace("%","\\%")+'%'
@@ -461,26 +457,27 @@ class Component(pyxmpp.jabberd.Component):
         reportedTime.setProp("label","Update interval")
 
         for d in a:
-            item=form.newChild(None,"item",None)
-            jidField=item.newChild(None,"field",None)
-            jidField.setProp("var","jid")
-            jidField.newTextChild(None,"value", d[0]+"@"+self.name)
+            item=form.newChild(None, "item", None)
+            jidField=item.newChild(None, "field", None)
+            jidField.setProp("var", "jid")
+            jiddata = d[0]+"@"+self.name
+            jidField.newTextChild(None, "value", jiddata.encode('utf-8'))
 
-            urlField=item.newChild(None,"field",None)
-            urlField.setProp("var","url")
-            urlField.newTextChild(None,"value",d[2])
+            urlField=item.newChild(None, "field", None)
+            urlField.setProp("var", "url")
+            urlField.newTextChild(None, "value", d[2].encode('utf-8'))
 
-            descField=item.newChild(None,"field",None)
-            descField.setProp("var","desc")
-            descField.newTextChild(None,"value",d[1])
+            descField=item.newChild(None, "field", None)
+            descField.setProp("var", "desc")
+            descField.newTextChild(None, "value", d[1].encode('utf-8'))
 
-            sbsField=item.newChild(None,"field",None)
-            sbsField.setProp("var","subscribers")
-            sbsField.newTextChild(None,"value",str(d[3]))
+            sbsField=item.newChild(None, "field", None)
+            sbsField.setProp("var", "subscribers")
+            sbsField.newTextChild(None, "value", unicode(str(d[3]), 'utf-8'))
 
-            timeField=item.newChild(None,"field",None)
-            timeField.setProp("var","timeout")
-            timeField.newTextChild(None,"value",str(d[4]/60))
+            timeField=item.newChild(None, "field", None)
+            timeField.setProp("var", "timeout")
+            timeField.newTextChild(None, "value", unicode(str(d[4]/60), 'utf-8'))
 
         self.stream.send(iq)
         return 1
@@ -589,8 +586,8 @@ class Component(pyxmpp.jabberd.Component):
 
     def botstatus(self, feedname, jids):
         for jid in jids:
-            p=Presence(from_jid=unicode(feedname+"@"+self.name, "utf-8"),
-                to_jid=JID(unicode(jid[0], "utf-8")),
+            p=Presence(from_jid=feedname+u"@"+self.name,
+                to_jid=JID(jid[0]),
                 show = self.get_show(feedname),
                 status = self.get_status(feedname))
             self.stream.send(p)
@@ -598,9 +595,9 @@ class Component(pyxmpp.jabberd.Component):
     def sendItem(self, feedname, i, jids):
         for ii in jids:
             if not i.has_key("summary"):
-                summary="No description"
+                summary=u"No description"
             else:
-                summary=i["summary"].encode("utf-8")
+                summary=i["summary"].encode('utf-8')
                 summary=re.sub('<br ??/??>','\n',summary)
                 summary=re.sub('<[^>]*>','',summary)
                 summary=re.sub('\n\n','\n',summary)
@@ -618,15 +615,15 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
             if i.has_key("author"):
-                author = " (by "+i["author"].encode("utf-8")+")"
+                author = u" (by "+i["author"]+u")"
             else:
-                author = ""
+                author = u""
 # i["title"] and i["link"] - unicode obj
 # Conversations doesnt support subject for messages, so all data moved to body:
-            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
-                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
+            m=Message(to_jid=JID(ii[0]),
+                from_jid=feedname+"@"+self.name,
                 stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
-                body="*"+i["title"].encode("utf-8")+"*\nLink: "+i["link"].encode("utf-8")+author+"\n\n"+summary+"\n\n")
+                body=u"*"+i["title"]+"*\nLink: "+i["link"]+author+u"\n\n"+unicode(summary, 'utf-8')+u"\n\n")
 # You can use separate subject for normal clients and for headline type of messages
 #            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
 #                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
@@ -646,7 +643,7 @@ class Component(pyxmpp.jabberd.Component):
         if feedname==None:
             return None
         else:
-            feedname=feedname.encode("utf-8")
+            feedname=feedname
         if stanza.get_type()=="unavailable" and self.isFeedNameRegistered(feedname):
             p=Presence(from_jid=stanza.get_to(),to_jid=stanza.get_from(),stanza_type="unavailable")
             self.stream.send(p)
@@ -677,8 +674,8 @@ class Component(pyxmpp.jabberd.Component):
     def get_status(self, feedname):
         for feedstr in self.dbfeeds:
             if feedstr[0] == feedname:
-                desc = str(feedstr[4])
-                users = str(feedstr[5])
+                desc = feedstr[4]
+                users = feedstr[5]
         if not self.new.has_key(feedname):
             self.new[feedname] = 0
         if not self.lasthournew.has_key(feedname):
@@ -689,19 +686,18 @@ class Component(pyxmpp.jabberd.Component):
             tst = None
         else:
             tst = self.last_upd[feedname]
-        status = desc+"\nNew messages in last 1h: "+str(self.lasthournew[feedname])+" / 24h: "+str(self.new[feedname])+"\nLast updated: "+time.strftime("%d %b %Y %H:%M:%S", time.localtime(tst))+"\nUsers: "+users
+        status = desc+u"\nNew messages in last 1h: "+unicode(str(self.lasthournew[feedname]), 'utf-8')+u" / 24h: "+unicode(str(self.new[feedname]), 'utf-8')+u"\nLast updated: "+unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(tst)), 'utf-8')+u"\nUsers: "+unicode(str(users), 'utf-8')
         return status
 
     def presence_control(self, stanza):
         feedname=stanza.get_to().node
-        feedname=feedname.encode("utf-8")
-        self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
+        self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
         a=self.dbCurPT.fetchone()
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
-                self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
+                self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
                 if self.dbCurPT.fetchone()[0]==0:
-                    self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (stanza.get_from().bare().as_utf8(), feedname))
+                    self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (stanza.get_from().bare(), feedname))
                     self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname = %s", (feedname,))
                     self.dbCurPT.execute("COMMIT")
                     self.dbfeeds = self.dbCurPT.dbfeeds()
@@ -723,7 +719,7 @@ class Component(pyxmpp.jabberd.Component):
 
         if stanza.get_type()=="unsubscribe" or stanza.get_type()=="unsubscribed":
             if self.isFeedNameRegistered(feedname) and a[0]>0:
-                self.dbCurPT.execute("DELETE FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare().as_utf8(), feedname))
+                self.dbCurPT.execute("DELETE FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
                 self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname = %s", (feedname,))
                 self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="unsubscribe",
