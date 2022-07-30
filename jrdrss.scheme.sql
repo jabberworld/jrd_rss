@@ -17,7 +17,7 @@ regdate TIMESTAMP NOT NULL DEFAULT NOW()
 CREATE TABLE IF NOT EXISTS subscribers (
 jid varchar(128),
 feedname varchar(255)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE utf8_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sent (
 received boolean DEFAULT false,
