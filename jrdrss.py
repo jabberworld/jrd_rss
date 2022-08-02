@@ -166,7 +166,7 @@ class Component(pyxmpp.jabberd.Component):
                 tags = i[8].split(',')
                 for tag in tags:
                     tag = tag.lower()
-                    if not feedtags.has_key(tag):
+                    if tag not in feedtags:
                         feedtags[tag] = list()
                     feedtags[tag].append((i[0], i[4], i[6], i[7]))
         if node == None and iq.get_to().node == None:
@@ -371,7 +371,7 @@ class Component(pyxmpp.jabberd.Component):
                 if feedstr[0] == nick:
                     url = feedstr[1]
                     bday = feedstr[3]
-                    if self.adaptive and self.adaptime.has_key(nick) and self.adaptime[nick] != feedstr[2]:
+                    if self.adaptive and nick in self.adaptime and self.adaptime[nick] != feedstr[2]:
                         real = u"(adaptive: "+str(int(self.adaptime[nick]/60))+u"mins)"
                     else:
                         real = u""
@@ -507,7 +507,7 @@ class Component(pyxmpp.jabberd.Component):
         checkfeeds=[]
         if not self.updating:
             for feed in self.dbfeeds:
-                if not self.adaptime.has_key(feed[0]):
+                if feed[0] not in self.adaptime:
                     checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
                     self.adaptime[feed[0]] = feed[2] # set update times to its defined values. This will be redefined after checkrss() (or not)
                 try:
@@ -529,7 +529,7 @@ class Component(pyxmpp.jabberd.Component):
         for feed in checkfeeds:
             feedname = feed[0]
 
-            if not self.times.has_key(feedname):
+            if feedname not in self.times:
                 self.times[feedname] = list()
 
             self.new[feedname] = 0
@@ -603,7 +603,7 @@ class Component(pyxmpp.jabberd.Component):
 
     def sendItem(self, feedname, i, jids):
         for ii in jids:
-            if not i.has_key("summary"):
+            if 'summary' not in i:
                 summary=u"No description"
             else:
                 summary=i["summary"].encode('utf-8')
@@ -628,7 +628,7 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
                 summary = unicode(summary, 'utf-8')
-            if i.has_key("author"):
+            if 'author' in i:
                 author = u" (by "+i["author"]+u")"
             else:
                 author = u""
@@ -670,9 +670,9 @@ class Component(pyxmpp.jabberd.Component):
                 self.stream.send(p)
 
     def get_show(self, feedname):
-        if not self.new.has_key(feedname):
+        if feedname not in self.new:
             self.new[feedname] = 0
-        if not self.lasthournew.has_key(feedname):
+        if feedname not in self.lasthournew:
             self.lasthournew[feedname] = 0
         if self.new[feedname] == 0:
             st = 'away'
@@ -690,15 +690,15 @@ class Component(pyxmpp.jabberd.Component):
             if feedstr[0] == feedname:
                 desc = feedstr[4]
                 users = feedstr[5]
-                if not self.adaptime.has_key(feedname):
+                if feedname not in self.adaptime:
                     nextin = feedstr[2] + self.last_upd[feedname]
                 else:
                     nextin = self.adaptime[feedname] + self.last_upd[feedname]
-        if not self.new.has_key(feedname):
+        if feedname not in self.new:
             self.new[feedname] = 0
-        if not self.lasthournew.has_key(feedname):
+        if feedname not in self.lasthournew:
             self.lasthournew[feedname] = 0
-        if not self.last_upd.has_key(feedname):
+        if feedname not in self.last_upd:
             self.last_upd[feedname] = 0
         if self.updating:
             tst = None
