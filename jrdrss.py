@@ -68,7 +68,7 @@ class DB:
         try:
             self.cursor.execute(sql, param)
         except (AttributeError, MySQLdb.OperationalError):
-            print "No connection to database"
+            print("No connection to database")
             self.connect()
             self.cursor.execute(sql, param)
         return self.cursor
@@ -421,7 +421,7 @@ class Component(pyxmpp.jabberd.Component):
         self.dbCurST.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE (feedname LIKE %s OR description LIKE %s OR url LIKE %s OR tags LIKE %s) AND (private = '0' OR (private = '1' AND registrar = %s))", (searchField, searchField, searchField, searchField, fromjid))
         a=self.dbCurST.fetchall()
 
-        print a
+        print (a)
 
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:search")
@@ -502,7 +502,7 @@ class Component(pyxmpp.jabberd.Component):
     def idle(self):
         nowTime = int(time.time())
         if not self.idleflag:
-            print "idle"
+            print("idle")
             self.idleflag=1
         checkfeeds=[]
         if not self.updating:
@@ -518,12 +518,12 @@ class Component(pyxmpp.jabberd.Component):
                     self.last_upd[feed[0]]=nowTime
             if checkfeeds:
                 self.idleflag=0
-                print "UPDATE:",
-                print checkfeeds
+                print("UPDATE:"),
+                print(checkfeeds)
                 thread.start_new_thread(self.checkrss,(checkfeeds,))
                 self.updating=1
         else:
-            print "Update in progress"
+            print("Update in progress")
 
     def checkrss(self, checkfeeds):
         for feed in checkfeeds:
@@ -540,14 +540,14 @@ class Component(pyxmpp.jabberd.Component):
             if len(jids)==0:
                 continue
             try:
-                print "FETCHING",
-                print feed[1]
+                print("FETCHING"),
+                print(feed[1])
                 d=feedparser.parse(feed[1])
                 bozo=d["bozo"]
             except:
                 continue
             if bozo==1:
-                print "Some problems with feed"
+                print("Some problems with feed")
                 self.new[feedname] = -1
                 self.botstatus(feedname, jids) # Send XA status if problems with feed
                 continue
@@ -578,12 +578,12 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 self.adaptime[feedname] = int(feed[2])
 
-            print "End of update"
+            print("End of update")
             self.botstatus(feedname, jids)
 # purging old records
         self.dbCurUT.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
         self.dbCurUT.execute("COMMIT")
-        print "End of checkrss"
+        print("End of checkrss")
         self.updating = 0
 
     def isSent(self, feedname, md5sum):
@@ -750,18 +750,18 @@ class Component(pyxmpp.jabberd.Component):
 
 while True:
     try:
-        print "Connecting to server"
+        print("Connecting to server")
 # https://xmpp.org/registrar/disco-categories.html
         c=Component(JID(NAME), PASSWORD, HOST, int(PORT), disco_category='headline', disco_type="rss", disco_name="Jabber RSS Transport")
         c.connect()
         c.loop(1)
         time.sleep(1) # to prevent fast reconnects in case of auth problems
     except KeyboardInterrupt:
-        print "Keyboard interrupt, shutting down"
+        print("Keyboard interrupt, shutting down")
         c.disconnect()
         sys.exit()
     except Exception as ae:
-        print ae
-        print "Lost connection to server, reconnect in 60 seconds"
+        print(ae)
+        print("Lost connection to server, reconnect in 60 seconds")
         time.sleep(60)
         pass
