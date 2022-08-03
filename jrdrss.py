@@ -491,7 +491,7 @@ class Component(pyxmpp.jabberd.Component):
         global programmVersion
         iq=iq.make_result_response()
         q=iq.new_query("jabber:iq:version")
-        q.newTextChild(q.ns(), "name", "Jabber RSS Transport (https://github.com/jabberworld/jrd_rss)")
+        q.newTextChild(q.ns(), "name", "Jabber RSS Transport")
         q.newTextChild(q.ns(), "version", programmVersion)
         self.stream.send(iq)
         return 1
