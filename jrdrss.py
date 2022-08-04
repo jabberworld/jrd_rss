@@ -608,10 +608,10 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 summary = i["summary"].encode('utf-8')
                 summary = re.sub('<br ??/??>','\n',summary)
-                summary = re.sub('<blockquote>\n?', '> «', summary)
+                summary = re.sub('<blockquote[^>]*>\n?', '> «', summary)
+                summary = re.sub('\n\n','\n',summary)
                 summary = re.sub('\n?</blockquote>', '»', summary)
-                summary=re.sub('<[^>]*>','',summary)
-                summary=re.sub('\n\n','\n',summary)
+                summary = re.sub('<[^>]*>','',summary)
                 summary=summary.replace("&nbsp;"," ")
                 summary=summary.replace("&ndash;","–")
                 summary=summary.replace("&mdash;","—")
