@@ -551,7 +551,7 @@ class Component(pyxmpp.jabberd.Component):
                 self.new[feedname] = -1
                 self.botstatus(feedname, jids) # Send XA status if problems with feed
                 continue
-            for i in d["items"]:
+            for i in reversed(d["items"]):
                 md5sum = md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
                 if not self.isSent(feedname, md5sum):
                     self.sendItem(feedname, i, jids)
@@ -606,8 +606,10 @@ class Component(pyxmpp.jabberd.Component):
             if 'summary' not in i:
                 summary=u"No description"
             else:
-                summary=i["summary"].encode('utf-8')
-                summary=re.sub('<br ??/??>','\n',summary)
+                summary = i["summary"].encode('utf-8')
+                summary = re.sub('<br ??/??>','\n',summary)
+                summary = re.sub('<blockquote>\n?', '> «', summary)
+                summary = re.sub('\n?</blockquote>', '»', summary)
                 summary=re.sub('<[^>]*>','',summary)
                 summary=re.sub('\n\n','\n',summary)
                 summary=summary.replace("&nbsp;"," ")
