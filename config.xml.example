@@ -11,4 +11,8 @@
 
 	<adaptive>1</adaptive>
 	<regallow>1</regallow>
+
+	<admin>username@linuxoid.in</admin>
+	<admin>username1@linuxoid.in</admin>
+	<admin>username2@linuxoid.in</admin>
 </config>
