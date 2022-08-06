@@ -10,4 +10,5 @@
 	<password>superpassword</password>
 
 	<adaptive>1</adaptive>
+	<regallow>1</regallow>
 </config>
