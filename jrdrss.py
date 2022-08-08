@@ -165,13 +165,16 @@ class Component(pyxmpp.jabberd.Component):
         body = iq.get_body().strip()
         bodyp = body.split()
         fromjid = iq.get_from().bare()
+        tojid = iq.get_to().bare()
         if fromjid in self.admins:
             if bodyp[0] == '+' and len(bodyp) > 4: # + feedname url interval description [tags]
                 if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
                     fint = bodyp[3]
-                    if fint < 60: fint = 60
+                    if fint < 60:
+                        fint = 60
                     tagmark = body.rfind("SETTAGS:")
-                    if tagmark < 0: tagmark = None
+                    if tagmark < 0:
+                        tagmark = None
                     fdesc = body[body.rfind(bodyp[4]):tagmark].strip()
                     if tagmark:
                         ftags = body[tagmark+8:]
@@ -181,23 +184,63 @@ class Component(pyxmpp.jabberd.Component):
                     self.dbCurTT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (bodyp[1], bodyp[2], fdesc, 0, fint, 0, fromjid, ftags))
                     self.dbCurTT.execute("COMMIT")
                     self.dbfeeds = self.dbCurTT.dbfeeds()
-
+                    self.sendmsg(tojid, fromjid, "Added new feed: "+bodyp[1]+" ("+fdesc+")")
+                else:
+                    self.sendmsg(tojid, fromjid, "Something wrong with this feed")
 
             elif bodyp[0] == 'update' and len(bodyp) == 2:
                 if bodyp[1] in self.last_upd:
+                    print("Forced update for "+bodyp[1])
                     self.last_upd[bodyp[1]] = 0
+                    self.sendmsg(tojid, fromjid, "Forces update for: "+bodyp[1])
+                else:
+                    self.sendmsg(tojid, fromjid, "Can't find this feed")
             elif bodyp[0] == 'updateall':
                 for a in self.last_upd:
+                    print("Forced update for all feeds")
                     self.last_upd[a] = 0
+                    self.sendmsg(tojid, fromjid, "Forces update for all feeds")
+
+            elif bodyp[0] == 'showmyprivate':
+                myprivate = ''
+                for f in self.dbfeeds:
+                    if f[7] == fromjid and f[6] == 1:
+                        if f[8]:
+                            tags = " SETTAGS: "+f[8]
+                        else:
+                            tags = ''
+                        myprivate += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
+                self.sendmsg(tojid, fromjid, myprivate)
+            elif bodyp[0] == 'showall':
+                allfeeds = ''
+                for f in self.dbfeeds:
+                    if f[8]:
+                        tags = " SETTAGS: "+f[8]
+                    else:
+                        tags = ''
+                    allfeeds += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
+                self.sendmsg(tojid, fromjid, allfeeds)
+            elif bodyp[0] == 'showmyfeeds':
+                myfeeds = ''
+                for f in self.dbfeeds:
+                    if f[7] == fromjid:
+                        if f[8]:
+                            tags = " SETTAGS: "+f[8]
+                        else:
+                            tags = ''
+                        myfeeds += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
+                self.sendmsg(tojid, fromjid, myfeeds)
 
             elif bodyp[0] == 'purgelast' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
                 print("purgelast for "+bodyp[1])
                 self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s ORDER BY datetime DESC LIMIT 1", (bodyp[1],))
                 self.dbCurTT.execute("COMMIT")
+                self.sendmsg(tojid, fromjid, "Purged last record for "+bodyp[1])
             elif bodyp[0] == 'purgeall' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
                 print("purgeall for "+bodyp[1])
                 self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s", (bodyp[1],))
                 self.dbCurTT.execute("COMMIT")
+                self.sendmsg(tojid, fromjid, "Purged all records for "+bodyp[1])
 
             elif bodyp[0] == 'settags' and len(bodyp) > 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
                 newtags = body[body.rfind(bodyp[2]):]
@@ -205,17 +248,40 @@ class Component(pyxmpp.jabberd.Component):
                 self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, bodyp[1],))
                 self.dbCurTT.execute("COMMIT")
                 self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New tags for "+bodyp[1]+": "+newtags)
             elif bodyp[0] == 'setupd' and len(bodyp) == 3 and any(bodyp[1] in fn for fn in self.dbfeeds):
                 newupd = int(bodyp[2])
                 if newupd < 60: newupd = 60
                 self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, bodyp[1],))
                 self.dbCurTT.execute("COMMIT")
                 self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New update interval for "+bodyp[1]+": "+newupd)
             elif bodyp[0] == 'setdesc' and len(bodyp) > 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
                 newdesc = body[body.rfind(bodyp[2]):].strip()
                 self.dbCurTT.execute("UPDATE feeds SET description = %s WHERE feedname = %s", (newdesc, bodyp[1],))
                 self.dbCurTT.execute("COMMIT")
                 self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New description for "+bodyp[1]+": "+newdesc)
+
+            elif bodyp[0] == 'help':
+                msg =  "List of commands:\n"
+                msg += "* help - show available commands\n\n"
+                msg += "* updateall - update all feeds\n"
+                msg += "* update NAME - update feed NAME\n\n"
+                msg += "* purgelast NAME - forget about last sent item for feed NAME\n"
+                msg += "* purgeall NAME - forget about all sent items for feed NAME\n\n"
+                msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
+                msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
+                msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
+                msg += "* showmyprivate - show my private feeds\n"
+                msg += "* showmyfeeds - show all feeds where i am registrar\n"
+                msg += "* showall - dump all registered feeds\n\n"
+                msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
+                self.sendmsg(tojid, fromjid, msg)
+
+    def sendmsg(self, fromjid, tojid, msg):
+        m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
+        self.stream.send(m)
 
     def mknode(self, disco_items, name, desc):
         desc = name+" ("+desc+")"
@@ -574,7 +640,7 @@ class Component(pyxmpp.jabberd.Component):
         if not self.updating:
             for feed in self.dbfeeds:
                 if feed[0] not in self.adaptime:
-                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
+#TODO                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
                     self.adaptime[feed[0]] = feed[2] # set update times to its defined values. This will be redefined after checkrss() (or not)
                 try:
                     if (nowTime-int(self.last_upd[feed[0]])) > self.adaptime[feed[0]]:
@@ -702,15 +768,16 @@ class Component(pyxmpp.jabberd.Component):
                 author = u" (by "+i["author"]+u")"
             else:
                 author = u""
-# i["title"] and i["link"] - unicode obj
 # Conversations doesnt support subject for messages, so all data moved to body:
-            m=Message(to_jid=JID(ii[0]),
-                from_jid=feedname+u"@"+self.name,
-                stanza_type='chat', # was headline # can be "normal","chat","headline","error","groupchat"
-                body=u'*'+i["title"]+u'*\nLink: '+i["link"]+author+u'\n\n'+summary+u'\n\n')
+            self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), u'*'+i["title"]+u'*\nLink: '+i["link"]+author+u'\n\n'+summary+u'\n\n')
+#            m=Message(to_jid=JID(ii[0]),
+#                from_jid=feedname+u"@"+self.name,
+#                stanza_type='chat', # was headline # can be "normal","chat","headline","error","groupchat"
+#                body=u'*'+i["title"]+u'*\nLink: '+i["link"]+author+u'\n\n'+summary+u'\n\n')
+
 # You can use separate subject for normal clients and for headline type of messages
-#            m=Message(to_jid=JID(unicode(ii[0], "utf-8")),
-#                from_jid=unicode(feedname+"@"+self.name, "utf-8"),
+#            m=Message(to_jid=JID(ii[0]),
+#                from_jid=feedname+"@"+self.name,
 #                stanza_type="chat", # was headline # can be "normal","chat","headline","error","groupchat"
 #                subject=i["title"]+"\n Link: "+i["link"],
 #                body=summary)
@@ -719,7 +786,8 @@ class Component(pyxmpp.jabberd.Component):
 #            oob=m.add_new_content("jabber:x:oob","x")
 #            desc=oob.newTextChild(oob.ns(), "desc", i["title"].encode("utf-8")) # use this to add url description with headline type of message
 #            url=oob.newTextChild(oob.ns(), "url", i["link"].encode("utf-8"))
-            self.stream.send(m)
+
+#            self.stream.send(m)
 
     def presence(self, stanza):
         fr=stanza.get_from().as_unicode()
