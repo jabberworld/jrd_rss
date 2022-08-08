@@ -56,7 +56,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.4.6"
+programmVersion="1.5"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -107,6 +107,7 @@ class Component(pyxmpp.jabberd.Component):
     dbCurUT = DB() # update thread
     dbCurRT = DB() # register thread
     dbCurPT = DB() # presence thread
+    dbCurTT = DB() # talking thread
 
     dbfeeds = dbCurUT.dbfeeds() # no matter which thread to use
 #    dbfeeds = DB.dbfeeds(DB()) # this uses another connection to DB
@@ -158,6 +159,63 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_presence_handler("subscribed",self.presence_control)
         self.stream.set_presence_handler("unsubscribe",self.presence_control)
         self.stream.set_presence_handler("unsubscribed",self.presence_control)
+        self.stream.set_message_handler("normal", self.message)
+
+    def message(self, iq):
+        body = iq.get_body().strip()
+        bodyp = body.split()
+        fromjid = iq.get_from().bare()
+        if fromjid in self.admins:
+            if bodyp[0] == '+' and len(bodyp) > 4: # + feedname url interval description [tags]
+                if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
+                    fint = bodyp[3]
+                    if fint < 60: fint = 60
+                    tagmark = body.rfind("SETTAGS:")
+                    if tagmark < 0: tagmark = None
+                    fdesc = body[body.rfind(bodyp[4]):tagmark].strip()
+                    if tagmark:
+                        ftags = body[tagmark+8:]
+                        ftags = re.sub(' *, *', ',', ftags.strip())
+                    else:
+                        ftags = u''
+                    self.dbCurTT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (bodyp[1], bodyp[2], fdesc, 0, fint, 0, fromjid, ftags))
+                    self.dbCurTT.execute("COMMIT")
+                    self.dbfeeds = self.dbCurTT.dbfeeds()
+
+
+            elif bodyp[0] == 'update' and len(bodyp) == 2:
+                if bodyp[1] in self.last_upd:
+                    self.last_upd[bodyp[1]] = 0
+            elif bodyp[0] == 'updateall':
+                for a in self.last_upd:
+                    self.last_upd[a] = 0
+
+            elif bodyp[0] == 'purgelast' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
+                print("purgelast for "+bodyp[1])
+                self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s ORDER BY datetime DESC LIMIT 1", (bodyp[1],))
+                self.dbCurTT.execute("COMMIT")
+            elif bodyp[0] == 'purgeall' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
+                print("purgeall for "+bodyp[1])
+                self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s", (bodyp[1],))
+                self.dbCurTT.execute("COMMIT")
+
+            elif bodyp[0] == 'settags' and len(bodyp) > 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
+                newtags = body[body.rfind(bodyp[2]):]
+                newtags = re.sub(' *, *', ',', newtags.strip())
+                self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, bodyp[1],))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+            elif bodyp[0] == 'setupd' and len(bodyp) == 3 and any(bodyp[1] in fn for fn in self.dbfeeds):
+                newupd = int(bodyp[2])
+                if newupd < 60: newupd = 60
+                self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, bodyp[1],))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+            elif bodyp[0] == 'setdesc' and len(bodyp) > 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
+                newdesc = body[body.rfind(bodyp[2]):].strip()
+                self.dbCurTT.execute("UPDATE feeds SET description = %s WHERE feedname = %s", (newdesc, bodyp[1],))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
 
     def mknode(self, disco_items, name, desc):
         desc = name+" ("+desc+")"
@@ -320,9 +378,7 @@ class Component(pyxmpp.jabberd.Component):
             fpriv = int(fpriv[0].getContent())
         if ftags:
             ftags = ftags[0].getContent().lower()
-            ftags = re.sub('^ *', '', ftags)
-            ftags = re.sub(' *$', '', ftags)
-            ftags = re.sub(' *, *', ',', ftags)
+            ftags = re.sub(' *, *', ',', ftags.strip())
             if len(ftags) > 255:
                 self.stream.send(iq.make_error_response("not-acceptable"))
                 return
