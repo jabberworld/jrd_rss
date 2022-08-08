@@ -201,16 +201,6 @@ class Component(pyxmpp.jabberd.Component):
                     self.last_upd[a] = 0
                     self.sendmsg(tojid, fromjid, "Forces update for all feeds")
 
-            elif bodyp[0] == 'showmyprivate':
-                myprivate = ''
-                for f in self.dbfeeds:
-                    if f[7] == fromjid and f[6] == 1:
-                        if f[8]:
-                            tags = " SETTAGS: "+f[8]
-                        else:
-                            tags = ''
-                        myprivate += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
-                self.sendmsg(tojid, fromjid, myprivate)
             elif bodyp[0] == 'showall':
                 allfeeds = ''
                 for f in self.dbfeeds:
@@ -220,16 +210,6 @@ class Component(pyxmpp.jabberd.Component):
                         tags = ''
                     allfeeds += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
                 self.sendmsg(tojid, fromjid, allfeeds)
-            elif bodyp[0] == 'showmyfeeds':
-                myfeeds = ''
-                for f in self.dbfeeds:
-                    if f[7] == fromjid:
-                        if f[8]:
-                            tags = " SETTAGS: "+f[8]
-                        else:
-                            tags = ''
-                        myfeeds += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
-                self.sendmsg(tojid, fromjid, myfeeds)
 
             elif bodyp[0] == 'purgelast' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
                 print("purgelast for "+bodyp[1])
@@ -241,27 +221,6 @@ class Component(pyxmpp.jabberd.Component):
                 self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s", (bodyp[1],))
                 self.dbCurTT.execute("COMMIT")
                 self.sendmsg(tojid, fromjid, "Purged all records for "+bodyp[1])
-
-            elif bodyp[0] == 'settags' and len(bodyp) > 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
-                newtags = body[body.rfind(bodyp[2]):]
-                newtags = re.sub(' *, *', ',', newtags.strip())
-                self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, bodyp[1],))
-                self.dbCurTT.execute("COMMIT")
-                self.dbfeeds = self.dbCurTT.dbfeeds()
-                self.sendmsg(tojid, fromjid, "New tags for "+bodyp[1]+": "+newtags)
-            elif bodyp[0] == 'setupd' and len(bodyp) == 3 and any(bodyp[1] in fn for fn in self.dbfeeds):
-                newupd = int(bodyp[2])
-                if newupd < 60: newupd = 60
-                self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, bodyp[1],))
-                self.dbCurTT.execute("COMMIT")
-                self.dbfeeds = self.dbCurTT.dbfeeds()
-                self.sendmsg(tojid, fromjid, "New update interval for "+bodyp[1]+": "+newupd)
-            elif bodyp[0] == 'setdesc' and len(bodyp) > 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
-                newdesc = body[body.rfind(bodyp[2]):].strip()
-                self.dbCurTT.execute("UPDATE feeds SET description = %s WHERE feedname = %s", (newdesc, bodyp[1],))
-                self.dbCurTT.execute("COMMIT")
-                self.dbfeeds = self.dbCurTT.dbfeeds()
-                self.sendmsg(tojid, fromjid, "New description for "+bodyp[1]+": "+newdesc)
 
             elif bodyp[0] == 'help':
                 msg =  "List of commands:\n"
@@ -278,6 +237,61 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* showall - dump all registered feeds\n\n"
                 msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
                 self.sendmsg(tojid, fromjid, msg)
+        else:
+            if bodyp[0] == 'help':
+                msg =  "List of commands:\n"
+                msg += "* help - show available commands\n\n"
+                msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
+                msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
+                msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
+                msg += "* showmyprivate - show my private feeds\n"
+                msg += "* showmyfeeds - show all feeds where i am registrar\n"
+                self.sendmsg(tojid, fromjid, msg)
+
+# available to all users
+        if bodyp[0] == 'showmyprivate':
+            myprivate = ''
+            for f in self.dbfeeds:
+                if f[7] == fromjid and f[6] == 1:
+                    if f[8]:
+                        tags = " SETTAGS: "+f[8]
+                    else:
+                        tags = ''
+                    myprivate += '\n+ '+f[0]+' '+f[1]+' '+str(f[2])+' '+f[4]+tags
+            self.sendmsg(tojid, fromjid, myprivate)
+        elif bodyp[0] == 'showmyfeeds':
+            myfeeds = ''
+            for f in self.dbfeeds:
+                if f[7] == fromjid:
+                    if f[8]:
+                        tags = " SETTAGS: "+f[8]
+                    else:
+                        tags = ''
+                    myfeeds += '\n+ '+f[0]+' '+f[1]+' '+str(f[2])+' '+f[4]+tags
+            self.sendmsg(tojid, fromjid, myfeeds)
+
+        elif bodyp[0] == 'settags' and len(bodyp) > 2 and (fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
+            newtags = body[body.rfind(bodyp[2]):]
+            newtags = re.sub(' *, *', ',', newtags.strip())
+            self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, bodyp[1],))
+            self.dbCurTT.execute("COMMIT")
+            self.dbfeeds = self.dbCurTT.dbfeeds()
+            self.sendmsg(tojid, fromjid, "New tags for "+bodyp[1]+": "+newtags)
+        elif bodyp[0] == 'setupd' and len(bodyp) == 3 and (fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
+            newupd = int(bodyp[2])
+            if newupd < 60:
+                newupd = 60
+            self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, bodyp[1],))
+            self.dbCurTT.execute("COMMIT")
+            self.dbfeeds = self.dbCurTT.dbfeeds()
+            self.sendmsg(tojid, fromjid, "New update interval for "+bodyp[1]+": "+str(newupd))
+        elif bodyp[0] == 'setdesc' and len(bodyp) > 2 and (fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
+            newdesc = body[body.rfind(bodyp[2]):].strip()
+            self.dbCurTT.execute("UPDATE feeds SET description = %s WHERE feedname = %s", (newdesc, bodyp[1],))
+            self.dbCurTT.execute("COMMIT")
+            self.dbfeeds = self.dbCurTT.dbfeeds()
+            self.sendmsg(tojid, fromjid, "New description for "+bodyp[1]+": "+newdesc)
+
 
     def sendmsg(self, fromjid, tojid, msg):
         m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
