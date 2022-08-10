@@ -56,7 +56,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.5"
+programmVersion="1.6"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -192,14 +192,14 @@ class Component(pyxmpp.jabberd.Component):
                 if bodyp[1] in self.last_upd:
                     print("Forced update for "+bodyp[1])
                     self.last_upd[bodyp[1]] = 0
-                    self.sendmsg(tojid, fromjid, "Forces update for: "+bodyp[1])
+                    self.sendmsg(tojid, fromjid, "Forced update for: "+bodyp[1])
                 else:
                     self.sendmsg(tojid, fromjid, "Can't find this feed")
             elif bodyp[0] == 'updateall':
                 for a in self.last_upd:
                     print("Forced update for all feeds")
                     self.last_upd[a] = 0
-                    self.sendmsg(tojid, fromjid, "Forces update for all feeds")
+                    self.sendmsg(tojid, fromjid, "Forced update for all feeds")
 
             elif bodyp[0] == 'showall':
                 allfeeds = ''
@@ -235,6 +235,9 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* showmyprivate - show my private feeds\n"
                 msg += "* showmyfeeds - show all feeds where i am registrar\n"
                 msg += "* showall - dump all registered feeds\n\n"
+                msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
+                msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
+                msg += "* showfilter NAME - show filters for feed NAME\n\n"
                 msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
                 self.sendmsg(tojid, fromjid, msg)
         else:
@@ -245,7 +248,10 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
                 msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
                 msg += "* showmyprivate - show my private feeds\n"
-                msg += "* showmyfeeds - show all feeds where i am registrar\n"
+                msg += "* showmyfeeds - show all feeds where i am registrar\n\n"
+                msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
+                msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
+                msg += "* showfilter NAME - show filters for feed NAME\n"
                 self.sendmsg(tojid, fromjid, msg)
 
 # available to all users
@@ -292,6 +298,41 @@ class Component(pyxmpp.jabberd.Component):
             self.dbfeeds = self.dbCurTT.dbfeeds()
             self.sendmsg(tojid, fromjid, "New description for "+bodyp[1]+": "+newdesc)
 
+        elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter') and len(bodyp)>1:
+            if len(bodyp)>2:
+                myfilter = body[body.rfind(bodyp[2]):].strip()
+                if len(myfilter) < 255:
+                    print("New filter: "+myfilter)
+                    if bodyp[0] == 'setposfilter':
+                        self.dbCurTT.execute("UPDATE subscribers SET posfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, bodyp[1], fromjid,))
+                        self.sendmsg(tojid, fromjid, "New positive filter for "+bodyp[1]+": "+myfilter)
+                    else:
+                        self.dbCurTT.execute("UPDATE subscribers SET negfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, bodyp[1], fromjid,))
+                        self.sendmsg(tojid, fromjid, "New negative filter for "+bodyp[1]+": "+myfilter)
+                else:
+                    print("Filter too long")
+                    self.sendmsg(tojid, fromjid, "Filter too long")
+            else:
+                print("No filter")
+                if bodyp[0] == 'setposfilter':
+                    self.dbCurTT.execute("UPDATE subscribers SET posfilter = NULL WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
+                    self.sendmsg(tojid, fromjid, "Positive filter for "+bodyp[1]+" cleared")
+                else:
+                    self.dbCurTT.execute("UPDATE subscribers SET negfilter = NULL WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
+                    self.sendmsg(tojid, fromjid, "Negative filter for "+bodyp[1]+" cleared")
+            self.dbCurTT.execute("COMMIT")
+        elif bodyp[0] == 'showfilter' and len(bodyp) == 2:
+            self.dbCurTT.execute("SELECT posfilter, negfilter FROM subscribers WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
+            myfilter = self.dbCurTT.fetchone()
+            if myfilter[0]:
+                posfilter = myfilter[0]
+            else:
+                posfilter = ''
+            if myfilter[1]:
+                negfilter = myfilter[1]
+            else:
+                posfilter = ''
+            self.sendmsg(tojid, fromjid, "Filters for "+bodyp[1]+":\nPositive (include): "+posfilter+"\nNegative (exclude): "+negfilter)
 
     def sendmsg(self, fromjid, tojid, msg):
         m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
@@ -654,7 +695,7 @@ class Component(pyxmpp.jabberd.Component):
         if not self.updating:
             for feed in self.dbfeeds:
                 if feed[0] not in self.adaptime:
-#TODO                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
+                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
                     self.adaptime[feed[0]] = feed[2] # set update times to its defined values. This will be redefined after checkrss() (or not)
                 try:
                     if (nowTime-int(self.last_upd[feed[0]])) > self.adaptime[feed[0]]:
@@ -681,8 +722,9 @@ class Component(pyxmpp.jabberd.Component):
             self.new[feedname] = 0
             self.lasthournew[feedname] = 0
 
-            self.dbCurUT.execute("SELECT jid FROM subscribers WHERE feedname = %s", (feedname,))
+            self.dbCurUT.execute("SELECT jid, posfilter, negfilter FROM subscribers WHERE feedname = %s", (feedname,))
             jids=self.dbCurUT.fetchall()
+
             if len(jids)==0:
                 continue
             try:
@@ -695,7 +737,7 @@ class Component(pyxmpp.jabberd.Component):
             if bozo==1:
                 print("Some problems with feed")
                 self.new[feedname] = -1
-                self.botstatus(feedname, jids) # Send XA status if problems with feed
+                self.botstatus(feedname, jids[0]) # Send XA status if problems with feed
                 continue
             for i in reversed(d["items"]):
                 md5sum = md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
@@ -725,7 +767,7 @@ class Component(pyxmpp.jabberd.Component):
                 self.adaptime[feedname] = int(feed[2])
 
             print("End of update")
-            self.botstatus(feedname, jids)
+            self.botstatus(feedname, jids[0])
 # purging old records
         self.dbCurUT.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL 3 DAY")
         self.dbCurUT.execute("COMMIT")
@@ -739,16 +781,23 @@ class Component(pyxmpp.jabberd.Component):
             return True
         return False
 
-    def botstatus(self, feedname, jids):
-        for jid in jids:
-            p=Presence(from_jid=feedname+u"@"+self.name,
-                to_jid=JID(jid[0]),
-                show = self.get_show(feedname),
-                status = self.get_status(feedname))
-            self.stream.send(p)
+    def botstatus(self, feedname, jid):
+        p=Presence(from_jid=feedname+u"@"+self.name,
+            to_jid=JID(jid[0]),
+            show = self.get_show(feedname),
+            status = self.get_status(feedname))
+        self.stream.send(p)
 
     def sendItem(self, feedname, i, jids):
         for ii in jids:
+            if ii[1]:
+                if not re.search(ii[1], i['title']):
+                    print("Not matched positive")
+                    continue
+            if ii[2]:
+                if re.search(ii[2], i['title']):
+                    print("Matched negative")
+                    continue
             if 'summary' not in i:
                 summary=u"No description"
             else:
