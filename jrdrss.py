@@ -278,7 +278,7 @@ class Component(pyxmpp.jabberd.Component):
 
         elif bodyp[0] == 'settags' and len(bodyp) > 2 and (fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
             newtags = body[body.rfind(bodyp[2]):]
-            newtags = re.sub(' *, *', ',', newtags.strip())
+            newtags = re.sub(' *, *', ',', newtags.strip().lower())
             self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, bodyp[1],))
             self.dbCurTT.execute("COMMIT")
             self.dbfeeds = self.dbCurTT.dbfeeds()
