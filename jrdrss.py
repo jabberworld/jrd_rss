@@ -331,7 +331,7 @@ class Component(pyxmpp.jabberd.Component):
             if myfilter[1]:
                 negfilter = myfilter[1]
             else:
-                posfilter = ''
+                negfilter = ''
             self.sendmsg(tojid, fromjid, "Filters for "+bodyp[1]+":\nPositive (include): "+posfilter+"\nNegative (exclude): "+negfilter)
 
     def sendmsg(self, fromjid, tojid, msg):
