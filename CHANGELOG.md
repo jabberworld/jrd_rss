@@ -100,6 +100,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
     setdesc NAME Description for feed - установить описание ленты NAME
     + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - добавить в базу ленту NAME с адресом URL, периодом обновления INTERVAL и описанием DESCRIPTION. При необходимости можно указать теги, следующие за ключевым словом SETTAGS:
 ```
+* Полный список доступных команд можно посмотреть по команде help
 
 ## v 1.6
 
