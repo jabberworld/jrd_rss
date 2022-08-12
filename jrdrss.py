@@ -56,7 +56,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.6"
+programmVersion="1.7"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -167,7 +167,7 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
         if fromjid in self.admins:
-            if bodyp[0] == '+' and len(bodyp) > 4: # + feedname url interval description [tags]
+            if bodyp[0] == '+' and len(bodyp) > 4 and bodyp[3].isdigit(): # + feedname url interval description [tags]
                 if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
                     fint = bodyp[3]
                     if fint < 60:
@@ -238,6 +238,7 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
                 msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
                 msg += "* showfilter NAME - show filters for feed NAME\n\n"
+                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed\n\n"
                 msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
                 self.sendmsg(tojid, fromjid, msg)
         else:
@@ -251,7 +252,8 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* showmyfeeds - show all feeds where i am registrar\n\n"
                 msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
                 msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
-                msg += "* showfilter NAME - show filters for feed NAME\n"
+                msg += "* showfilter NAME - show filters for feed NAME\n\n"
+                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed\n"
                 self.sendmsg(tojid, fromjid, msg)
 
 # available to all users
@@ -283,7 +285,7 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCurTT.execute("COMMIT")
             self.dbfeeds = self.dbCurTT.dbfeeds()
             self.sendmsg(tojid, fromjid, "New tags for "+bodyp[1]+": "+newtags)
-        elif bodyp[0] == 'setupd' and len(bodyp) == 3 and (fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
+        elif bodyp[0] == 'setupd' and len(bodyp) == 3 and (fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds) and bodyp[2].isdigit():
             newupd = int(bodyp[2])
             if newupd < 60:
                 newupd = 60
@@ -333,6 +335,16 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 negfilter = ''
             self.sendmsg(tojid, fromjid, "Filters for "+bodyp[1]+":\nPositive (include): "+posfilter+"\nNegative (exclude): "+negfilter)
+
+        elif bodyp[0] == 'setshort' and len(bodyp) > 1:
+            if len(bodyp) == 3 and bodyp[2].isdigit():
+                self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[2], bodyp[1], fromjid,))
+                self.sendmsg(tojid, fromjid, "Maximum size for "+bodyp[1]+" set to "+bodyp[2])
+            elif len(bodyp) == 2:
+                self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
+                self.sendmsg(tojid, fromjid, "Maximum size for "+bodyp[1]+" set to unlimited")
+            self.dbCurTT.execute("COMMIT")
+
 
     def sendmsg(self, fromjid, tojid, msg):
         m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
@@ -528,8 +540,6 @@ class Component(pyxmpp.jabberd.Component):
         self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime, fpriv, registrar, ftags))
         self.last_upd[fname] = 0
         self.dbfeeds = self.dbCurRT.dbfeeds()
-#        if fsubs:
-#            self.dbCurRT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (iqres.get_to().bare(), fname))
         self.dbCurRT.execute("COMMIT")
         self.stream.send(iqres)
         if fsubs:
@@ -722,7 +732,7 @@ class Component(pyxmpp.jabberd.Component):
             self.new[feedname] = 0
             self.lasthournew[feedname] = 0
 
-            self.dbCurUT.execute("SELECT jid, posfilter, negfilter FROM subscribers WHERE feedname = %s", (feedname,))
+            self.dbCurUT.execute("SELECT jid, posfilter, negfilter, short FROM subscribers WHERE feedname = %s", (feedname,))
             jids=self.dbCurUT.fetchall()
 
             if len(jids)==0:
@@ -827,6 +837,8 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
                 summary = unicode(summary, 'utf-8')
+                if ii[3] != 0 and len(summary) > ii[3]:
+                    summary = summary[:ii[3]]+'...'
             if 'author' in i:
                 author = u" (by "+i["author"]+u")"
             else:

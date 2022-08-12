@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS subscribers (
 jid varchar(128),
 feedname varchar(255),
 posfilter varchar(255) DEFAULT NULL,
-negfilter varchar(255) DEFAULT NULL
+negfilter varchar(255) DEFAULT NULL,
+short INT DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sent (
