@@ -833,7 +833,7 @@ class Component(pyxmpp.jabberd.Component):
                 summary = re.sub('\n?</blockquote>', '»\n', summary)
                 summary = re.sub('<[^>]*>','',summary)
                 summary = re.sub('\n»', '»', summary)
-                summary = re.sub('»\n[^\n]', '»\n\n', summary)
+                summary = re.sub('»\n(?!\n)', '»\n\n', summary)
                 summary=summary.replace("&hellip;","…")
                 summary=summary.replace('&quot;','"')
                 summary=summary.replace("&nbsp;"," ")
