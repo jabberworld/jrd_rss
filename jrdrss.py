@@ -9,6 +9,7 @@
 #               python-pyxmpp - https://github.com/Jajcus/pyxmpp
 #               python-feedparser - https://github.com/kurtmckee/feedparser
 #               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
+#               python-pil (optional) - https://pypi.org/project/Pillow/ - if you want to use /favicon.ico from site in vCard
 
 import os
 import sys
@@ -51,12 +52,19 @@ PASSWORD = dom.getElementsByTagName("password")[0].childNodes[0].data
 
 ADAPTIVE = dom.getElementsByTagName("adaptive")[0].childNodes[0].data
 REGALLOW = dom.getElementsByTagName("regallow")[0].childNodes[0].data
+ICONLOGO = dom.getElementsByTagName("iconlogo")[0].childNodes[0].data
+
+if int(ICONLOGO):
+    import urllib2
+    from PIL import Image
+    import io
+    import base64
 
 admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.1"
+programmVersion="1.7.2"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -99,6 +107,7 @@ class Component(pyxmpp.jabberd.Component):
     lasthournew = {} # new hourly messages counter
     adaptive = int(ADAPTIVE)
     regallow = int(REGALLOW)
+    iconlogo = int(ICONLOGO)
     adaptime = {}
     admins = admins
     rsslogo='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAACH1BMVEX3hCL3gyH3hCH2gyH2gh/2gR72gh72gyD4oVf6wpP6vIj5snX4pF33lUL2iSz6u4f+/v7+/Pr+9/L97eD82r36vov4n1P6u4b+/v3////+/f3+8+r817j5rWz2jDD++PT82rz4pmD2hib2giD5snf97d798uj+/Pv+9Oz6xZj3kDj2ii73lD/3mkn5tn37z6j96Nf++vb+/fv827/4nE32hCL2hiX3kjz5r3H82bv+///95tT4o1r2iCv3jDL2iSv2hCP5rGv84cn96tr5tHj84837yqH5s3f3mUn2hyj3kTr6xpr+9/H4m036wY////797+T70a34pV/2hyn5tXv+8un82776wI///v7+9e37zaX3l0X5sHH6xJb6wZD85tL5tXz4qGT70q/83sX97+P6x5v+/fz82Lr2iy/3iy73mUf84Mj++/j97+L3kTv84cr++PP4rGr3jzb98uf85M/3lkL5rW381rX4qmf97d/2hyf4nlH2hif3jjT4qmj4oln5sXP4m0z95dH83MH5sXX6voz3kz796tn84cv5snb3kDn97N73lkP70Kz97N383sT3iy/6u4X++vf5rm75uID+9/D6wI7959T3jzf4nE798un6xZf2gyL++PL70q73jTP948371bP3nE36uoT2ii37yZ785dH2iCn83MD2iS397uD5q2r5uYH2hST4pmH6uYP6uYH5q2n5sXT6uYL4nlKE35UjAAACC0lEQVR42qyRA5cjQRDHr7dqpta2bZuxbZ9t27bNz3rdebGe9p/MTONX3rM7YoyVlboHAJRkBFbMnsorKquqa2qhCMOwrr6+obGpuaW1FokVAtraO4Q6u7p7ehEKeuhIqK9/YHCI5QHDI6ONYwlofGIy10kZTE3PVM/OzS/EicWlZcohVkiWJVxdW99oFMTm1jZAtocdhVKFXFNqzZggtNtZPhjp9M0Go8mMQ2ix2uI+7MgyAUdHh7PB5fZ4Ec0+vyACk0OZQLBDKBSORIlUMUEs7h2EDGBfogv1+wdWSHVAROnypIMwOHjosKthUyBH1CtkPnqMr46foPQ0VYMnT82ePiOIsx7Cc+f54sLFjDwZEOKlysuCuHIV8doFvriuhMxWEA2pbtwUeRhuDZ1o5gv/bUzHGLpzdwoI7o2K9O4jPuDhOitTowd4OPfo8RMvqZ42cCIyiM+eizRTMYamX/ASbC8BX+n5xes3OPiWf99NDyVSRJ8w7Hj/gegjr/DTZxm/8O/X+3ICGPoW78H3H4Q/f/E+//4jDfA6zsSkBIA3/grgnxfo/+YvADIWVrEtkpaUlFgMCwnmJUvlJdOWVSszMi+XkUyTXLGSrXSVgJTENLg32Jes5lzTA0wljGvXrd+wfmMNu/amzRs2b0HkAmCOYFFmBocIKOEwAwWAACyCyHwwBpjJBKGpAgAbEWloKH7cQAAAAABJRU5ErkJggg=='
@@ -560,6 +569,24 @@ class Component(pyxmpp.jabberd.Component):
             pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname, 'utf-8')+u"@"+self.name), to_jid=iqres.get_to().bare())
             self.stream.send(pres)
 
+    def getlogo(self, url):
+        if self.iconlogo:
+            imgtmp = io.BytesIO()
+
+            favicon = urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/favicon.ico"
+            fp = urllib2.Request(favicon)
+
+            try:
+                myico = urllib2.urlopen(fp, timeout=5)
+                png = Image.open(myico)
+                png.save(imgtmp, format="PNG")
+
+                return base64.b64encode(imgtmp.getvalue())
+            except:
+                return self.rsslogo
+        else:
+            return self.rsslogo
+
     def get_vCard(self,iq):
 
         iqmr=iq.make_result_response()
@@ -595,7 +622,7 @@ class Component(pyxmpp.jabberd.Component):
                     q.newTextChild(None,"URL", url.encode('utf-8'))
                     q.newTextChild(None,"BDAY", str(bday))
                     feedav=q.newTextChild(None,"PHOTO", None)
-                    feedav.newTextChild(None, "BINVAL", self.rsslogo)
+                    feedav.newTextChild(None, "BINVAL", self.getlogo(url))
                     feedav.newTextChild(None, "TYPE", 'image/png')
         self.stream.send(iqmr)
         return 1
