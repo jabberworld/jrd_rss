@@ -9,7 +9,7 @@
 #               python-pyxmpp - https://github.com/Jajcus/pyxmpp
 #               python-feedparser - https://github.com/kurtmckee/feedparser
 #               python-mysqldb - https://pypi.python.org/pypi/mysqlclient
-#               python-pil (optional) - https://pypi.org/project/Pillow/ - if you want to use /favicon.ico from site in vCard
+#               python-pil and python-lxml (optional) - https://pypi.org/project/Pillow/ - if you want to use favicon.ico from site in vCard
 
 import os
 import sys
@@ -59,12 +59,13 @@ if int(ICONLOGO):
     from PIL import Image
     import io
     import base64
+    import lxml.html as lh
 
 admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.2"
+programmVersion="1.7.3"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -571,18 +572,33 @@ class Component(pyxmpp.jabberd.Component):
 
     def getlogo(self, url):
         if self.iconlogo:
-            imgtmp = io.BytesIO()
+            url = urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/"
+            try:
+                doc = lh.parse(urllib2.urlopen(url, timeout=3))
+                if len(doc.xpath('//link[@rel="icon"]/@href')):
+                    ico = doc.xpath('//link[@rel="icon"]/@href')[0]
+                elif len(doc.xpath('//link[@rel="shortcut icon"]/@href')):
+                    ico = doc.xpath('//link[@rel="shortcut icon"]/@href')[0]
+                else:
+                    ico = 'favicon.ico'
+            except:
+                ico = 'favicon.ico'
 
-            favicon = urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/favicon.ico"
-            fp = urllib2.Request(favicon)
+            if ico == '/favicon.ico':
+                ico = 'favicon.ico'
+            if ico.find("http")!=0:
+                ico = url+ico
 
             try:
-                myico = urllib2.urlopen(fp, timeout=5)
-                png = Image.open(myico)
+                ico = urllib2.urlopen(ico, timeout=5)
+                png = Image.open(ico)
+                imgtmp = io.BytesIO()
                 png.save(imgtmp, format="PNG")
 
                 return base64.b64encode(imgtmp.getvalue())
-            except:
+            except Exception as msg:
+                print("Getting logo for "+url+" as "+ico)
+                print(msg)
                 return self.rsslogo
         else:
             return self.rsslogo
