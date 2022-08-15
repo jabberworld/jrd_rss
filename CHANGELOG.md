@@ -136,3 +136,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.7.6
 
 * Fix for iq:last. Now you can get uptime for transport and last activity for feed. Added XMPP Ping and XMPP URN Time.
+
+## v 1.7.7
+
+* Real fix for empty messages
