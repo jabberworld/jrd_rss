@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.3"
+programmVersion="1.7.4"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -572,38 +572,44 @@ class Component(pyxmpp.jabberd.Component):
 
     def getlogo(self, url):
         if self.iconlogo:
-            url = urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/"
-            try:
+            url = urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]
+
+            def makerq(url):
                 rq = urllib2.Request(url, headers={'User-agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'})
-                doc = lh.parse(urllib2.urlopen(rq, timeout=5))
-                if len(doc.xpath('//link[@rel="icon"]/@href')):
-                    ico = doc.xpath('//link[@rel="icon"]/@href')[0]
-                elif len(doc.xpath('//link[@rel="shortcut icon"]/@href')):
-                    ico = doc.xpath('//link[@rel="shortcut icon"]/@href')[0]
-                else:
-                    ico = 'favicon.ico'
-            except:
-                ico = 'favicon.ico'
-
-            if ico == '/favicon.ico':
-                ico = 'favicon.ico'
-            if ico.find("http")!=0:
-                ico = url+ico
+                return urllib2.urlopen(rq, timeout=5)
 
             try:
-                rq = urllib2.Request(ico, headers={'User-agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'})
-                ico = urllib2.urlopen(rq, timeout=5)
-                png = Image.open(ico)
-                imgtmp = io.BytesIO()
-                png.save(imgtmp, format="PNG")
+                ico = makerq(url+'/favicon.ico')
+            except:
+                try:
+                    doc = lh.parse(makerq(url))
+                    data = doc.xpath('//link[contains(@rel, "icon")]/@href')
+                    if len(data):
+                        ico = data[0]
+                    else:
+                        ico = ''
+                except Exception as msg:
+                    print("Can't find ico: "),
+                    print(msg)
+                    ico = ''
 
-                return base64.b64encode(imgtmp.getvalue())
-            except Exception as msg:
-                print("Getting logo for "+url+" as "+ico)
-                print(msg)
+                if ico != '':
+                    if ico.find("http")!=0:
+                        if ico.startswith('/'):
+                            ico = url+ico
+                        else:
+                            ico = url+'/'+ico
+                    ico = makerq(ico)
+            if ico != '':
+                try:
+                    png = Image.open(ico)
+                    imgtmp = io.BytesIO()
+                    png.save(imgtmp, format="PNG")
+                    return base64.b64encode(imgtmp.getvalue())
+                except:
+                    return self.rsslogo
+            else:
                 return self.rsslogo
-        else:
-            return self.rsslogo
 
     def get_vCard(self,iq):
 

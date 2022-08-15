@@ -124,3 +124,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.7.3
 
 * Добавил парсер страницы через python-lxml, теперь favicon не обязательно должен быть в /favicon.ico
+
+## v 1.7.4
+
+* Исправления для алгоритма получения favicon.ico. Теперь в приоритете стандартный путь и если по нему ничего нет - то уже тогда парсим страницу.
