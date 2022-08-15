@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.4"
+programmVersion="1.7.5"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -172,7 +172,11 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_message_handler("normal", self.message)
 
     def message(self, iq):
-        body = iq.get_body().strip()
+        body = iq.get_body()
+        if body == '':
+            print("Got no msg")
+            return False
+        body = body.strip()
         bodyp = body.split()
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
