@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.5"
+programmVersion="1.7.6"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -155,12 +155,16 @@ class Component(pyxmpp.jabberd.Component):
         self.disco_info.add_feature("jabber:iq:search")
         self.disco_info.add_feature("jabber:iq:register")
         self.disco_info.add_feature("jabber:iq:last")
+        self.disco_info.add_feature("urn:xmpp:ping")
+        self.disco_info.add_feature("urn:xmpp:time")
         self.disco_info.add_feature("vcard-temp")
         self.stream.set_iq_get_handler("vCard","vcard-temp",self.get_vCard)
         self.stream.set_iq_get_handler("query","jabber:iq:version",self.get_version)
         self.stream.set_iq_get_handler("query","jabber:iq:search",self.get_search)
         self.stream.set_iq_set_handler("query","jabber:iq:search",self.set_search)
         self.stream.set_iq_get_handler("query","jabber:iq:last",self.get_last)
+        self.stream.set_iq_get_handler("ping","urn:xmpp:ping",self.pingpong)
+        self.stream.set_iq_get_handler("time","urn:xmpp:time",self.get_time)
         self.stream.set_iq_get_handler("query","jabber:iq:register",self.get_register)
         self.stream.set_iq_set_handler("query","jabber:iq:register",self.set_register)
         self.stream.set_presence_handler("available",self.presence)
@@ -430,12 +434,31 @@ class Component(pyxmpp.jabberd.Component):
     def disco_get_items(self, node, iq):
         return self.browseitems(iq, node)
 
+    def pingpong(self, iq):
+        iq = iq.make_result_response()
+        self.stream.send(iq)
+        return 1
+
+    def get_time(self, iq):
+        iq = iq.make_result_response()
+        q = iq.xmlnode.newChild(None, "time", None)
+        q.setProp("xmlns", "urn:xmpp:time")
+ #       q = iq.new_query("urn:xmpp:time")
+        q.newTextChild(q.ns(), "tzo", "+02:00")
+        q.newTextChild(q.ns(), "utc", time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+        self.stream.send(iq)
+        return 1
+
     def get_last(self, iq):
-        if iq.get_to() != self.name:
-            return 0
-        iq=iq.make_result_response()
-        q=iq.new_query("jabber:iq:last")
-        q.setProp("seconds",str(int(time.time())-self.start_time))
+        iq = iq.make_result_response()
+        q = iq.new_query("jabber:iq:last")
+        if iq.get_from() == self.name:
+            q.setProp("seconds", str(int(time.time()) - self.start_time))
+        else:
+            if iq.get_from().node in self.last_upd:
+                q.setProp("seconds", str(int(time.time() - self.last_upd[iq.get_from().node])))
+            else:
+                return 0
         self.stream.send(iq)
         return 1
 

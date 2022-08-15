@@ -128,3 +128,11 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.7.4
 
 * Исправления для алгоритма получения favicon.ico. Теперь в приоритете стандартный путь и если по нему ничего нет - то уже тогда парсим страницу.
+
+## v 1.7.5
+
+* Bugfix release: fix for empty messages
+
+## v 1.7.6
+
+* Fix for iq:last. Now you can get uptime for transport and last activity for feed. Added XMPP Ping and XMPP URN Time.
