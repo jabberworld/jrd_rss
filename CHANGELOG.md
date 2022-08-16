@@ -140,3 +140,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.7.7
 
 * Real fix for empty messages
+
+## v 1.7.8
+
+* Added resource to JIDs

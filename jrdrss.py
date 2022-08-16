@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.7"
+programmVersion="1.7.8"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -884,7 +884,7 @@ class Component(pyxmpp.jabberd.Component):
         return False
 
     def botstatus(self, feedname, jid):
-        p=Presence(from_jid=feedname+u"@"+self.name,
+        p=Presence(from_jid=feedname+u"@"+self.name+u"/rss",
             to_jid=JID(jid[0]),
             show = self.get_show(feedname),
             status = self.get_status(feedname))
@@ -971,7 +971,7 @@ class Component(pyxmpp.jabberd.Component):
             self.stream.send(p)
         if stanza.get_type()=="available" or stanza.get_type()==None:
             if self.isFeedNameRegistered(feedname):
-                p=Presence(from_jid=stanza.get_to(),
+                p=Presence(from_jid=JID(stanza.get_to().as_unicode()+'/rss'),
                             to_jid=stanza.get_from(),
                             show=self.get_show(feedname),
                             status=self.get_status(feedname))
