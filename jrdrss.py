@@ -177,7 +177,7 @@ class Component(pyxmpp.jabberd.Component):
 
     def message(self, iq):
         body = iq.get_body()
-        if body == None or body = '':
+        if body == None or body == '':
             print("Got no msg")
             return False
         body = body.strip()
