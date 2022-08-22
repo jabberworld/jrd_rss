@@ -256,7 +256,7 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
                 msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
                 msg += "* showfilter NAME - show filters for feed NAME\n\n"
-                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed\n\n"
+                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 to 'Title only' mode\n\n"
                 msg += "* hide NAME - make feed NAME private\n"
                 msg += "* unhide NAME - make feed NAME public\n\n"
                 msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
@@ -273,7 +273,7 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
                 msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
                 msg += "* showfilter NAME - show filters for feed NAME\n\n"
-                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed\n\n"
+                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 to 'Title only' mode\n\n"
                 msg += "* hide NAME - make feed NAME private\n"
                 msg += "* unhide NAME - make feed NAME public\n\n"
                 self.sendmsg(tojid, fromjid, msg)
@@ -932,12 +932,12 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&lt;","<")
                 summary=summary.replace("&gt;",">")
                 summary = unicode(summary, 'utf-8')
-                if ii[3] != 0 and len(summary) > ii[3]:
+                if ii[3] == 1:
+                    summary = ''
+                elif ii[3] != 0 and len(summary) > ii[3]:
                     summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
                 else:
                     summary = u'\n\n'+summary+u'...\n\n'
-                if ii[3] == 1:
-                    summary = ''
             if 'author' in i:
                 author = u" (by "+i["author"]+u")"
             else:
