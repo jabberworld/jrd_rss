@@ -144,3 +144,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.7.8
 
 * Added resource to JIDs
+
+## v 1.7.9
+
+* Добавлена возможность вывода новостей без описания - только заголовок и ссылка. Для этого установите размер описания равным 1 командой setshort NAME 1

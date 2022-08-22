@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.8"
+programmVersion="1.7.9"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -901,7 +901,7 @@ class Component(pyxmpp.jabberd.Component):
                     print("Matched negative")
                     continue
             if 'summary' not in i:
-                summary=u"No description"
+                summary=u"\n\nNo description"
             else:
                 summary = i["summary"].encode('utf-8')
                 summary = re.sub('<br ??/??>','\n',summary)
@@ -933,13 +933,17 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&gt;",">")
                 summary = unicode(summary, 'utf-8')
                 if ii[3] != 0 and len(summary) > ii[3]:
-                    summary = summary[:ii[3]]+'...'
+                    summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
+                else:
+                    summary = u'\n\n'+summary+u'...\n\n'
+                if ii[3] == 1:
+                    summary = ''
             if 'author' in i:
                 author = u" (by "+i["author"]+u")"
             else:
                 author = u""
 # Conversations doesnt support subject for messages, so all data moved to body:
-            self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), u'*'+i["title"]+u'*\nLink: '+i["link"]+author+u'\n\n'+summary+u'\n\n')
+            self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), u'*'+i["title"]+u'*\nLink: '+i["link"]+author+summary)
 #            m=Message(to_jid=JID(ii[0]),
 #                from_jid=feedname+u"@"+self.name,
 #                stanza_type='chat', # was headline # can be "normal","chat","headline","error","groupchat"
