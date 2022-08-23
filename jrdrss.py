@@ -185,7 +185,6 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
         feedname = iq.get_to().node
-        print(feedname)
         if fromjid in self.admins:
             if bodyp[0] == '+' and len(bodyp) > 4 and bodyp[3].isdigit(): # + feedname url interval description [tags]
                 if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
@@ -384,7 +383,6 @@ class Component(pyxmpp.jabberd.Component):
         elif bodyp[0] == 'hide' and len(bodyp) < 3:
             if len(bodyp) == 2:
                 feedname = bodyp[1]
-            print(feedname)
             if any(fromjid == f[7] and f[0] == feedname for f in self.dbfeeds) and feedname != None:
                 self.dbCurTT.execute("UPDATE feeds SET private = 1 WHERE feedname = %s AND registrar = %s", (feedname, fromjid,))
                 self.dbCurTT.execute("COMMIT")
@@ -1045,43 +1043,45 @@ class Component(pyxmpp.jabberd.Component):
         return status
 
     def presence_control(self, stanza):
-        feedname=stanza.get_to().node
-        self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
+        feedname = stanza.get_to().node
+        fromjid = stanza.get_from().bare()
+        self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (fromjid, feedname))
         a=self.dbCurPT.fetchone()
+        print("Got "+str(stanza.get_type())+" request from "+str(fromjid)+" to "+str(feedname))
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
-                self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (stanza.get_from().bare(), feedname))
+                self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (fromjid, feedname))
                 self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname = %s", (feedname,))
                 self.dbCurPT.execute("COMMIT")
                 self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="subscribe",
-                    to_jid=stanza.get_from().bare(),
+                    to_jid=fromjid,
                     from_jid=stanza.get_to())
                 self.stream.send(p)
                 p=Presence(stanza_type="subscribed",
-                    to_jid=stanza.get_from().bare(),
+                    to_jid=fromjid,
                     from_jid=stanza.get_to())
                 self.stream.send(p)
                 return 1
             elif a[0]==0:
                 p=Presence(stanza_type="unsubscribed",
-                    to_jid=stanza.get_from().bare(),
+                    to_jid=fromjid,
                     from_jid=stanza.get_to())
                 self.stream.send(p)
                 return 1
 
         if stanza.get_type()=="unsubscribe" or stanza.get_type()=="unsubscribed":
             if self.isFeedNameRegistered(feedname) and a[0]>0:
-                self.dbCurPT.execute("DELETE FROM subscribers WHERE jid = %s AND feedname = %s", (stanza.get_from().bare(), feedname))
+                self.dbCurPT.execute("DELETE FROM subscribers WHERE jid = %s AND feedname = %s", (fromjid, feedname))
                 self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname = %s", (feedname,))
                 self.dbCurPT.execute("COMMIT")
                 self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="unsubscribe",
-                    to_jid=stanza.get_from().bare(),
+                    to_jid=fromjid,
                     from_jid=stanza.get_to())
                 self.stream.send(p)
                 p=Presence(stanza_type="unsubscribed",
-                    to_jid=stanza.get_from().bare(),
+                    to_jid=fromjid,
                     from_jid=stanza.get_to())
                 self.stream.send(p)
 
