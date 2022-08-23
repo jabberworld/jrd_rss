@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.7.9"
+programmVersion="1.8"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -184,6 +184,8 @@ class Component(pyxmpp.jabberd.Component):
         bodyp = body.split()
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
+        feedname = iq.get_to().node
+        print(feedname)
         if fromjid in self.admins:
             if bodyp[0] == '+' and len(bodyp) > 4 and bodyp[3].isdigit(): # + feedname url interval description [tags]
                 if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
@@ -206,11 +208,13 @@ class Component(pyxmpp.jabberd.Component):
                 else:
                     self.sendmsg(tojid, fromjid, "Something wrong with this feed")
 
-            elif bodyp[0] == 'update' and len(bodyp) == 2:
-                if bodyp[1] in self.last_upd:
-                    print("Forced update for "+bodyp[1])
-                    self.last_upd[bodyp[1]] = 0
-                    self.sendmsg(tojid, fromjid, "Forced update for: "+bodyp[1])
+            elif bodyp[0] == 'update' and len(bodyp) < 3:
+                if len(bodyp) == 2:
+                    feedname = bodyp[1]
+                if feedname in self.last_upd and feedname != None:
+                    print("Forced update for "+feedname)
+                    self.last_upd[feedname] = 0
+                    self.sendmsg(tojid, fromjid, "Forced update for: "+feedname)
                 else:
                     self.sendmsg(tojid, fromjid, "Can't find this feed")
             elif bodyp[0] == 'updateall':
@@ -229,24 +233,34 @@ class Component(pyxmpp.jabberd.Component):
                     allfeeds += "\n+ "+f[0]+" "+f[1]+" "+str(f[2])+" "+f[4]+tags
                 self.sendmsg(tojid, fromjid, allfeeds)
 
-            elif bodyp[0] == 'purgelast' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
-                print("purgelast for "+bodyp[1])
-                self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s ORDER BY datetime DESC LIMIT 1", (bodyp[1],))
-                self.dbCurTT.execute("COMMIT")
-                self.sendmsg(tojid, fromjid, "Purged last record for "+bodyp[1])
-            elif bodyp[0] == 'purgeall' and len(bodyp) == 2 and any(bodyp[1] in fn for fn in self.dbfeeds):
-                print("purgeall for "+bodyp[1])
-                self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s", (bodyp[1],))
-                self.dbCurTT.execute("COMMIT")
-                self.sendmsg(tojid, fromjid, "Purged all records for "+bodyp[1])
+            elif bodyp[0] == 'purgelast' and len(bodyp) < 3:
+                if len(bodyp) == 2:
+                    feedname = bodyp[1]
+                if any(feedname in fn for fn in self.dbfeeds) and feedname != None:
+                    print("purgelast for "+feedname)
+                    self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s ORDER BY datetime DESC LIMIT 1", (feedname,))
+                    self.dbCurTT.execute("COMMIT")
+                    self.sendmsg(tojid, fromjid, "Purged last record for "+feedname)
+                else:
+                    self.sendmsg(tojid, fromjid, "Can't find this feed")
+            elif bodyp[0] == 'purgeall' and len(bodyp) < 3:
+                if len(bodyp) == 2:
+                    feedname = bodyp[1]
+                if any(feedname in fn for fn in self.dbfeeds) and feedname != None:
+                    print("purgeall for "+feedname)
+                    self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s", (feedname,))
+                    self.dbCurTT.execute("COMMIT")
+                    self.sendmsg(tojid, fromjid, "Purged all records for "+feedname)
+                else:
+                    self.sendmsg(tojid, fromjid, "Can't find this feed")
 
             elif bodyp[0] == 'help':
                 msg =  "List of commands:\n"
                 msg += "* help - show available commands\n\n"
                 msg += "* updateall - update all feeds\n"
-                msg += "* update NAME - update feed NAME\n\n"
-                msg += "* purgelast NAME - forget about last sent item for feed NAME\n"
-                msg += "* purgeall NAME - forget about all sent items for feed NAME\n\n"
+                msg += "* update [NAME] - update feed NAME (or this feed)\n\n"
+                msg += "* purgelast [NAME] - forget about last sent item for feed NAME (or this feed)\n"
+                msg += "* purgeall [NAME] - forget about all sent items for feed NAME (or this feed)\n\n"
                 msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
                 msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
                 msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
@@ -257,8 +271,8 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
                 msg += "* showfilter NAME - show filters for feed NAME\n\n"
                 msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 to 'Title only' mode\n\n"
-                msg += "* hide NAME - make feed NAME private\n"
-                msg += "* unhide NAME - make feed NAME public\n\n"
+                msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
+                msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
                 msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
                 self.sendmsg(tojid, fromjid, msg)
         else:
@@ -274,8 +288,8 @@ class Component(pyxmpp.jabberd.Component):
                 msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
                 msg += "* showfilter NAME - show filters for feed NAME\n\n"
                 msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 to 'Title only' mode\n\n"
-                msg += "* hide NAME - make feed NAME private\n"
-                msg += "* unhide NAME - make feed NAME public\n\n"
+                msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
+                msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
                 self.sendmsg(tojid, fromjid, msg)
 
 # available to all users
@@ -367,16 +381,27 @@ class Component(pyxmpp.jabberd.Component):
                 self.sendmsg(tojid, fromjid, "Maximum size for "+bodyp[1]+" set to unlimited")
             self.dbCurTT.execute("COMMIT")
 
-        elif bodyp[0] == 'hide' and len(bodyp) == 2 and any(fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
-            self.dbCurTT.execute("UPDATE feeds SET private = 1 WHERE feedname = %s AND registrar = %s", (bodyp[1], fromjid,))
-            self.dbCurTT.execute("COMMIT")
-            self.dbfeeds = self.dbCurTT.dbfeeds()
-            self.sendmsg(tojid, fromjid, "Feed "+bodyp[1]+" is now hidden from search")
-        elif bodyp[0] == 'unhide' and len(bodyp) == 2 and any(fromjid == f[7] and f[0] == bodyp[1] for f in self.dbfeeds):
-            self.dbCurTT.execute("UPDATE feeds SET private = 0 WHERE feedname = %s AND registrar = %s", (bodyp[1], fromjid,))
-            self.dbCurTT.execute("COMMIT")
-            self.dbfeeds = self.dbCurTT.dbfeeds()
-            self.sendmsg(tojid, fromjid, "Feed "+bodyp[1]+" is now visible in search")
+        elif bodyp[0] == 'hide' and len(bodyp) < 3:
+            if len(bodyp) == 2:
+                feedname = bodyp[1]
+            print(feedname)
+            if any(fromjid == f[7] and f[0] == feedname for f in self.dbfeeds) and feedname != None:
+                self.dbCurTT.execute("UPDATE feeds SET private = 1 WHERE feedname = %s AND registrar = %s", (feedname, fromjid,))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "Feed "+feedname+" is now hidden from search")
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed or you are not owner")
+        elif bodyp[0] == 'unhide' and len(bodyp) < 3:
+            if len(bodyp) == 2:
+                feedname = bodyp[1]
+            if any(fromjid == f[7] and f[0] == feedname for f in self.dbfeeds) and feedname != None:
+                self.dbCurTT.execute("UPDATE feeds SET private = 0 WHERE feedname = %s AND registrar = %s", (feedname, fromjid,))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "Feed "+feedname+" is now visible in search")
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed or you are not owner")
 
     def sendmsg(self, fromjid, tojid, msg):
         m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
