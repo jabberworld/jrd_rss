@@ -253,46 +253,30 @@ class Component(pyxmpp.jabberd.Component):
                 else:
                     self.sendmsg(tojid, fromjid, "Can't find this feed")
 
-            elif bodyp[0] == 'help':
-                msg =  "List of commands:\n"
-                msg += "* help - show available commands\n\n"
+# available to all users
+        if bodyp[0] == 'help':
+            msg =  "List of commands:\n"
+            msg += "* help - show available commands\n\n"
+            msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
+            msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
+            msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
+            msg += "* showmyprivate - show my private feeds\n"
+            msg += "* showmyfeeds - show all feeds where i am registrar\n\n"
+            msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
+            msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
+            msg += "* showfilter NAME - show filters for feed NAME\n\n"
+            msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 for 'Title only' mode\n\n"
+            msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
+            msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
+            if fromjid in self.admins:
                 msg += "* updateall - update all feeds\n"
                 msg += "* update [NAME] - update feed NAME (or this feed)\n\n"
                 msg += "* purgelast [NAME] - forget about last sent item for feed NAME (or this feed)\n"
                 msg += "* purgeall [NAME] - forget about all sent items for feed NAME (or this feed)\n\n"
-                msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
-                msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
-                msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
-                msg += "* showmyprivate - show my private feeds\n"
-                msg += "* showmyfeeds - show all feeds where i am registrar\n"
                 msg += "* showall - dump all registered feeds\n\n"
-                msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
-                msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
-                msg += "* showfilter NAME - show filters for feed NAME\n\n"
-                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 to 'Title only' mode\n\n"
-                msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
-                msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
                 msg += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
-                self.sendmsg(tojid, fromjid, msg)
-        else:
-            if bodyp[0] == 'help':
-                msg =  "List of commands:\n"
-                msg += "* help - show available commands\n\n"
-                msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
-                msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
-                msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
-                msg += "* showmyprivate - show my private feeds\n"
-                msg += "* showmyfeeds - show all feeds where i am registrar\n\n"
-                msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
-                msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
-                msg += "* showfilter NAME - show filters for feed NAME\n\n"
-                msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 to 'Title only' mode\n\n"
-                msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
-                msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
-                self.sendmsg(tojid, fromjid, msg)
-
-# available to all users
-        if bodyp[0] == 'showmyprivate':
+            self.sendmsg(tojid, fromjid, msg)
+        elif bodyp[0] == 'showmyprivate':
             myprivate = ''
             for f in self.dbfeeds:
                 if f[7] == fromjid and f[6] == 1:
