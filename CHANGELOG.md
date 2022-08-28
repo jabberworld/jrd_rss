@@ -152,3 +152,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.8
 
 * Название ленты для update, purgelast, purgeall, hide и unhide сделано опциональным - теперь при отсутствии названия параметр применяется к текущей ленте.
+
+## v 1.8.1
+
+* Добавил возможность редактирования через команды settags, setdesc, setupd, hide и unhide и для администраторских аккаунтов, а не только для владельцев лент.
