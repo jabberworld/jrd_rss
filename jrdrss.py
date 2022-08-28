@@ -35,7 +35,7 @@ import pyxmpp.jabberd.all
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
 # https://stackoverflow.com/questions/9772691/feedparser-with-timeout
-# can't use requests on my system, but with sockets all ok too
+# can't (?) use requests on my system, but with sockets all ok too
 socket.setdefaulttimeout(10) # timeout for fetching feeds
 
 dom = xml.dom.minidom.parse(config)
@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.8.2"
+programmVersion="1.8.3"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -185,6 +185,10 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
         feedname = iq.get_to().node
+        if not feedname and bodyp[1] == ':':
+            print("You should specify correct feed name")
+            self.sendmsg(tojid, fromjid, "You should specify correct feed name")
+            return False
         if fromjid in self.admins:
             if bodyp[0] == '+' and len(bodyp) > 4 and bodyp[3].isdigit(): # + feedname url interval description [tags]
                 if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
