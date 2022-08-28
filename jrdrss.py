@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.8.1"
+programmVersion="1.8.2"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -257,15 +257,15 @@ class Component(pyxmpp.jabberd.Component):
         if bodyp[0] == 'help':
             msg =  "List of commands:\n"
             msg += "* help - show available commands\n\n"
-            msg += "* settags NAME TAG1,TAG2,TAG3... - set new tags for feed NAME\n"
-            msg += "* setupd NAME SECS - set new update interval for feed NAME in SECS\n"
-            msg += "* setdesc NAME New feed description - set new feed description for feed NAME\n\n"
+            msg += "* settags (NAME|:) TAG1,TAG2,TAG3... - set new tags for feed NAME (or this feed if :)\n"
+            msg += "* setupd (NAME|:) SECS - set new update interval for feed NAME (or this feed if :) in SECS\n"
+            msg += "* setdesc (NAME|:) New feed description - set new feed description for feed NAME (or this feed if :)\n\n"
             msg += "* showmyprivate - show my private feeds\n"
             msg += "* showmyfeeds - show all feeds where i am registrar\n\n"
-            msg += "* setposfilter NAME [EXP] - deliver news for feed NAME only with subject matched expression EXP\n"
-            msg += "* setnegfilter NAME [EXP] - block news for feed NAME with subject matched expression EXP\n"
-            msg += "* showfilter NAME - show filters for feed NAME\n\n"
-            msg += "* setshort NAME [SYMBOLS] - limit maximum message size in feed. Use setshort NAME 1 for 'Title only' mode\n\n"
+            msg += "* setposfilter (NAME|:) [EXP] - deliver news for feed NAME (or this feed if :) only with subject matched expression EXP\n"
+            msg += "* setnegfilter (NAME|:) [EXP] - block news for feed NAME (or this feed if :) with subject matched expression EXP\n"
+            msg += "* showfilter [NAME] - show filters for feed NAME (or this feed)\n\n"
+            msg += "* setshort (NAME|:) [SYMBOLS] - limit maximum message size in feed NAME (or this feed if :). Use setshort NAME 1 for 'Title only' mode\n\n"
             msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
             if fromjid in self.admins:
@@ -297,53 +297,72 @@ class Component(pyxmpp.jabberd.Component):
                     myfeeds += '\n+ '+f[0]+' '+f[1]+' '+str(f[2])+' '+f[4]+tags
             self.sendmsg(tojid, fromjid, myfeeds)
 
-        elif bodyp[0] == 'settags' and len(bodyp) > 2 and any((fromjid == f[7] or fromjid in self.admins) and f[0] == bodyp[1] for f in self.dbfeeds):
-            newtags = body[body.rfind(bodyp[2]):]
-            newtags = re.sub(' *, *', ',', newtags.strip().lower())
-            self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, bodyp[1],))
-            self.dbCurTT.execute("COMMIT")
-            self.dbfeeds = self.dbCurTT.dbfeeds()
-            self.sendmsg(tojid, fromjid, "New tags for "+bodyp[1]+": "+newtags)
-        elif bodyp[0] == 'setupd' and len(bodyp) == 3 and any((fromjid == f[7] or fromjid in self.admins) and f[0] == bodyp[1] for f in self.dbfeeds) and bodyp[2].isdigit():
+        elif bodyp[0] == 'settags' and len(bodyp) > 2 and (any(fromjid == f[7] for f in self.dbfeeds) or fromjid in self.admins):
+            if bodyp[1] != ':':
+                feedname = bodyp[1]
+            if any(f[0] == feedname for f in self.dbfeeds):
+                newtags = body[body.rfind(bodyp[2]):]
+                newtags = re.sub(' *, *', ',', newtags.strip().lower())
+                self.dbCurTT.execute("UPDATE feeds SET tags = %s WHERE feedname = %s", (newtags, feedname,))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New tags for "+feedname+": "+newtags)
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed")
+        elif bodyp[0] == 'setupd' and len(bodyp) == 3 and (any(fromjid == f[7] for f in self.dbfeeds) or fromjid in self.admins) and bodyp[2].isdigit():
             newupd = int(bodyp[2])
             if newupd < 60:
                 newupd = 60
-            self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, bodyp[1],))
-            self.dbCurTT.execute("COMMIT")
-            self.dbfeeds = self.dbCurTT.dbfeeds()
-            self.sendmsg(tojid, fromjid, "New update interval for "+bodyp[1]+": "+str(newupd))
-        elif bodyp[0] == 'setdesc' and len(bodyp) > 2 and any((fromjid == f[7] or fromjid in self.admins) and f[0] == bodyp[1] for f in self.dbfeeds):
-            newdesc = body[body.rfind(bodyp[2]):].strip()
-            self.dbCurTT.execute("UPDATE feeds SET description = %s WHERE feedname = %s", (newdesc, bodyp[1],))
-            self.dbCurTT.execute("COMMIT")
-            self.dbfeeds = self.dbCurTT.dbfeeds()
-            self.sendmsg(tojid, fromjid, "New description for "+bodyp[1]+": "+newdesc)
+            if bodyp[1] != ':':
+                feedname = bodyp[1]
+            if any(f[0] == feedname for f in self.dbfeeds):
+                self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, feedname,))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New update interval for "+feedname+": "+str(newupd))
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed")
+        elif bodyp[0] == 'setdesc' and len(bodyp) > 2 and (any(fromjid == f[7] for f in self.dbfeeds) or fromjid in self.admins):
+            if bodyp[1] != ':':
+                feedname = bodyp[1]
+            if any(f[0] == feedname for f in self.dbfeeds):
+                newdesc = body[body.rfind(bodyp[2]):].strip()
+                self.dbCurTT.execute("UPDATE feeds SET description = %s WHERE feedname = %s", (newdesc, feedname,))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New description for "+feedname+": "+newdesc)
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed")
 
-        elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter') and len(bodyp)>1:
-            if len(bodyp)>2:
+        elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter') and len(bodyp) > 1:
+            if bodyp[1] != ':':
+                feedname = bodyp[1]
+            if len(bodyp) > 2:
                 myfilter = body[body.rfind(bodyp[2]):].strip()
                 if len(myfilter) < 255:
                     print("New filter: "+myfilter)
                     if bodyp[0] == 'setposfilter':
-                        self.dbCurTT.execute("UPDATE subscribers SET posfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, bodyp[1], fromjid,))
-                        self.sendmsg(tojid, fromjid, "New positive filter for "+bodyp[1]+": "+myfilter)
+                        self.dbCurTT.execute("UPDATE subscribers SET posfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, feedname, fromjid,))
+                        self.sendmsg(tojid, fromjid, "New positive filter for "+feedname+": "+myfilter)
                     else:
-                        self.dbCurTT.execute("UPDATE subscribers SET negfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, bodyp[1], fromjid,))
-                        self.sendmsg(tojid, fromjid, "New negative filter for "+bodyp[1]+": "+myfilter)
+                        self.dbCurTT.execute("UPDATE subscribers SET negfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, feedname, fromjid,))
+                        self.sendmsg(tojid, fromjid, "New negative filter for "+feedname+": "+myfilter)
                 else:
                     print("Filter too long")
                     self.sendmsg(tojid, fromjid, "Filter too long")
             else:
                 print("No filter")
                 if bodyp[0] == 'setposfilter':
-                    self.dbCurTT.execute("UPDATE subscribers SET posfilter = NULL WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
-                    self.sendmsg(tojid, fromjid, "Positive filter for "+bodyp[1]+" cleared")
+                    self.dbCurTT.execute("UPDATE subscribers SET posfilter = NULL WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
+                    self.sendmsg(tojid, fromjid, "Positive filter for "+feedname+" cleared")
                 else:
-                    self.dbCurTT.execute("UPDATE subscribers SET negfilter = NULL WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
-                    self.sendmsg(tojid, fromjid, "Negative filter for "+bodyp[1]+" cleared")
+                    self.dbCurTT.execute("UPDATE subscribers SET negfilter = NULL WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
+                    self.sendmsg(tojid, fromjid, "Negative filter for "+feedname+" cleared")
             self.dbCurTT.execute("COMMIT")
-        elif bodyp[0] == 'showfilter' and len(bodyp) == 2:
-            self.dbCurTT.execute("SELECT posfilter, negfilter FROM subscribers WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
+        elif bodyp[0] == 'showfilter' and len(bodyp) < 3:
+            if len(bodyp) == 2:
+                feedname = bodyp[1]
+            self.dbCurTT.execute("SELECT posfilter, negfilter FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
             myfilter = self.dbCurTT.fetchone()
             if myfilter[0]:
                 posfilter = myfilter[0]
@@ -353,15 +372,17 @@ class Component(pyxmpp.jabberd.Component):
                 negfilter = myfilter[1]
             else:
                 negfilter = ''
-            self.sendmsg(tojid, fromjid, "Filters for "+bodyp[1]+":\nPositive (include): "+posfilter+"\nNegative (exclude): "+negfilter)
+            self.sendmsg(tojid, fromjid, "Filters for "+feedname+":\nPositive (include): "+posfilter+"\nNegative (exclude): "+negfilter)
 
         elif bodyp[0] == 'setshort' and len(bodyp) > 1:
+            if bodyp[1] != ':':
+                feedname = bodyp[1]
             if len(bodyp) == 3 and bodyp[2].isdigit():
-                self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[2], bodyp[1], fromjid,))
-                self.sendmsg(tojid, fromjid, "Maximum size for "+bodyp[1]+" set to "+bodyp[2])
+                self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[2], feedname, fromjid,))
+                self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to "+bodyp[2])
             elif len(bodyp) == 2:
-                self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (bodyp[1], fromjid,))
-                self.sendmsg(tojid, fromjid, "Maximum size for "+bodyp[1]+" set to unlimited")
+                self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
+                self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to unlimited")
             self.dbCurTT.execute("COMMIT")
 
         elif bodyp[0] == 'hide' and len(bodyp) < 3:
