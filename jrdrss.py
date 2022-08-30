@@ -126,6 +126,8 @@ class Component(pyxmpp.jabberd.Component):
     def isFeedNameRegistered(self, feedname):
         self.dbCurRT.execute("SELECT count(feedname) FROM feeds WHERE feedname = %s", (feedname,))
         a=self.dbCurRT.fetchone()
+        print("Is registered data: "),
+        print(a) # DEBUG
         if not a:
             return False
         elif a[0]==0:
@@ -1056,7 +1058,8 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = stanza.get_from().bare()
         self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (fromjid, feedname))
         a=self.dbCurPT.fetchone()
-        print("Got "+str(stanza.get_type())+" request from "+str(fromjid)+" to "+str(feedname))
+        print("Got "+str(stanza.get_type())+" request from "+str(fromjid)+" to "+str(feedname)+" with a: "),
+        print(a)
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
                 self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (fromjid, feedname))
