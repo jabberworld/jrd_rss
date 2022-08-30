@@ -164,3 +164,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.8.3
 
 * Фикс на случай отправки сообщений с ":" напрямую транспорту.
+
+## v. 1.8.4
+
+* Убраны SQL-запросы для проверки наличия ленты и URL.

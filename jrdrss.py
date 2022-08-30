@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.8.3"
+programmVersion="1.8.4"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -124,26 +124,20 @@ class Component(pyxmpp.jabberd.Component):
 #    print dbfeeds
 
     def isFeedNameRegistered(self, feedname):
-        self.dbCurRT.execute("SELECT count(feedname) FROM feeds WHERE feedname = %s", (feedname,))
-        a=self.dbCurRT.fetchone()
-        print("Is registered data: "),
-        print(a) # DEBUG
-        if not a:
-            return False
-        elif a[0]==0:
-            return False
-        else:
+        print("Is registered feed for"),
+        print(feedname),
+        if any(f[0] == feedname for f in self.dbfeeds):
+            print(": TRUE")
             return True
+        else:
+            print(": FALSE")
+            return False
 
     def isFeedUrlRegistered(self, furl):
-        self.dbCurRT.execute("SELECT count(feedname) FROM feeds WHERE url = %s", (furl,))
-        a=self.dbCurRT.fetchone()
-        if not a:
-            return False
-        elif a[0]==0:
-            return False
-        else:
+        if any(f[1] == furl for f in self.dbfeeds):
             return True
+        else:
+            return False
 
     def connected(self):
         self.orig_stream_idle=self.stream._idle
@@ -695,10 +689,13 @@ class Component(pyxmpp.jabberd.Component):
                     url = feedstr[1]
                     bday = feedstr[3]
                     if self.adaptive and nick in self.adaptime and self.adaptime[nick] != feedstr[2]:
-                        real = u"(adaptive: "+str(int(self.adaptime[nick]/60))+u"mins)"
+                        real = "(adaptive: "+str(int(self.adaptime[nick]/60))+u"mins)"
                     else:
-                        real = u""
-                    description = feedstr[4]+u'.\nFeed update interval: '+str(feedstr[2]/60)+u' mins '+real+u'\nFeed subscribers: '+str(feedstr[5])
+                        real = ''
+                    tags = ''
+                    if feedstr[8]:
+                        tags = feedstr[8].replace(',', ', ')
+                    description = feedstr[4]+u'\nTags: '+tags+u'\nFeed update interval: '+str(feedstr[2]/60)+u' mins '+real+u'\nFeed subscribers: '+str(feedstr[5])
 # Tried to use favicon.ico from site as EXTVAL in PHOTO, but no luck - no support for EXTVAL in clients (tried Psi, Gajim, Conversations)
 #                    favicon=urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/favicon.ico"
 
@@ -1058,7 +1055,9 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = stanza.get_from().bare()
         self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (fromjid, feedname))
         a=self.dbCurPT.fetchone()
-        print("Got "+str(stanza.get_type())+" request from "+str(fromjid)+" to "+str(feedname)+" with a: "),
+        print("Got "+str(stanza.get_type())+" request from "+str(fromjid)+" to"),
+        print(feedname),
+        print("with a:"),
         print(a)
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
