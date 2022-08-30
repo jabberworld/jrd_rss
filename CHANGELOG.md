@@ -172,3 +172,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.8.5
 
 * Добавлен режим "сокращенного" тела ленты - по setshort NAME 2 показывается только первое предложение.
+
+## v 1.8.6
+
+* Bugfix release.

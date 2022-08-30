@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.8.5"
+programmVersion="1.8.6"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -631,7 +631,10 @@ class Component(pyxmpp.jabberd.Component):
 
             def makerq(url):
                 rq = urllib2.Request(url, headers={'User-agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'})
-                return urllib2.urlopen(rq, timeout=5)
+                try:
+                    return urllib2.urlopen(rq, timeout=5)
+                except Exception as msg:
+                    raise Exception(msg)
 
             try:
                 ico = makerq(url+'/favicon.ico')
@@ -650,10 +653,13 @@ class Component(pyxmpp.jabberd.Component):
 
                 if ico != '':
                     if ico.find("http")!=0:
-                        if ico.startswith('/'):
+                        if ico.startswith('//'):
+                            ico = urlparse.urlparse(url)[0]+':'+ico
+                        elif ico.startswith('/'):
                             ico = url+ico
                         else:
                             ico = url+'/'+ico
+
                     ico = makerq(ico)
             if ico != '':
                 try:
@@ -971,7 +977,7 @@ class Component(pyxmpp.jabberd.Component):
                 elif ii[3] != 0 and len(summary) > ii[3]:
                     summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
                 else:
-                    summary = u'\n\n'+summary+u'...\n\n'
+                    summary = u'\n\n'+summary+u'\n\n'
             if 'author' in i:
                 author = u" (by "+i["author"]+u")"
             else:
