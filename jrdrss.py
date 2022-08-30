@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.8.4"
+programmVersion="1.8.5"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -124,13 +124,13 @@ class Component(pyxmpp.jabberd.Component):
 #    print dbfeeds
 
     def isFeedNameRegistered(self, feedname):
-        print("Is registered feed for"),
-        print(feedname),
+    #    print("Is registered feed "),
+    #    print(feedname),
         if any(f[0] == feedname for f in self.dbfeeds):
-            print(": TRUE")
+    #        print(": TRUE")
             return True
         else:
-            print(": FALSE")
+    #        print(": FALSE")
             return False
 
     def isFeedUrlRegistered(self, furl):
@@ -257,15 +257,15 @@ class Component(pyxmpp.jabberd.Component):
         if bodyp[0] == 'help':
             msg =  "List of commands:\n"
             msg += "* help - show available commands\n\n"
-            msg += "* settags (NAME|:) TAG1,TAG2,TAG3... - set new tags for feed NAME (or this feed if :)\n"
-            msg += "* setupd (NAME|:) SECS - set new update interval for feed NAME (or this feed if :) in SECS\n"
-            msg += "* setdesc (NAME|:) New feed description - set new feed description for feed NAME (or this feed if :)\n\n"
+            msg += "* settags (NAME or ':') TAG1,TAG2,TAG3... - set new tags for feed NAME (or : for this feed)\n"
+            msg += "* setupd (NAME or ':') SECS - set new update interval for feed NAME (or : for this feed) in SECS\n"
+            msg += "* setdesc (NAME or ':') New feed description - set new feed description for feed NAME (or : for this feed)\n\n"
             msg += "* showmyprivate - show my private feeds\n"
             msg += "* showmyfeeds - show all feeds where i am registrar\n\n"
-            msg += "* setposfilter (NAME|:) [EXP] - deliver news for feed NAME (or this feed if :) only with subject matched expression EXP\n"
-            msg += "* setnegfilter (NAME|:) [EXP] - block news for feed NAME (or this feed if :) with subject matched expression EXP\n"
+            msg += "* setposfilter (NAME or ':') [EXP] - deliver news for feed NAME (or : for this feed) only with subject matched expression EXP\n"
+            msg += "* setnegfilter (NAME or ':') [EXP] - block news for feed NAME (or : for this feed) with subject matched expression EXP\n"
             msg += "* showfilter [NAME] - show filters for feed NAME (or this feed)\n\n"
-            msg += "* setshort (NAME|:) [SYMBOLS] - limit maximum message size in feed NAME (or this feed if :). Use setshort NAME 1 for 'Title only' mode\n\n"
+            msg += "* setshort (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed). Use setshort NAME 1 for 'Title only' mode. Use setshort NAME 2 for '1 sentence mode'\n\n"
             msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
             if fromjid in self.admins:
@@ -694,7 +694,8 @@ class Component(pyxmpp.jabberd.Component):
                         real = ''
                     tags = ''
                     if feedstr[8]:
-                        tags = feedstr[8].replace(',', ', ')
+                        for tag in feedstr[8].replace(',', ', ').split():
+                            tags += tag.capitalize().replace(',', ', ')
                     description = feedstr[4]+u'\nTags: '+tags+u'\nFeed update interval: '+str(feedstr[2]/60)+u' mins '+real+u'\nFeed subscribers: '+str(feedstr[5])
 # Tried to use favicon.ico from site as EXTVAL in PHOTO, but no luck - no support for EXTVAL in clients (tried Psi, Gajim, Conversations)
 #                    favicon=urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/favicon.ico"
@@ -965,6 +966,8 @@ class Component(pyxmpp.jabberd.Component):
                 summary = unicode(summary, 'utf-8')
                 if ii[3] == 1:
                     summary = ''
+                elif ii[3] == 2:
+                    summary = u'\n\n'+re.split(r'\.|!|\?', summary)[0]+u'\n\n'
                 elif ii[3] != 0 and len(summary) > ii[3]:
                     summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
                 else:
