@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.9"
+programmVersion="1.9.1"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -907,11 +907,11 @@ class Component(pyxmpp.jabberd.Component):
                     if 'link' in i:
                         flink = i["link"][:254]
                     if 'title' in i:
-                        ftitle = i["title"][:254]
+                        ftitle = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["title"][:254]])
                     if 'author' in i:
-                        fauthor = i["author"][:126]
+                        fauthor = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["author"][:126]])
                     if 'summary' in i:
-                        fsum = i["summary"][:8190]
+                        fsum = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["summary"][:8190]])
                     self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5, title, author, link, content) VALUES (TRUE, %s, %s, %s, %s, %s, %s)", (feedname, md5sum, ftitle, fauthor, flink, fsum))
                     time.sleep(0.2)
                 else:

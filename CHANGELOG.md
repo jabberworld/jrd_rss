@@ -180,3 +180,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.9
 
 * Добавлен архив сообщений: теперь можно отправить ленте число от 1 до 9 для получения последних сообщений. Обновилась схема базы - см. alts.
+
+## v 1.9.1
+
+* Fix for utf8mb4 symbols in feed content
