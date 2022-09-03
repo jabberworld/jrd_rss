@@ -853,7 +853,7 @@ class Component(pyxmpp.jabberd.Component):
         if not self.updating:
             for feed in self.dbfeeds:
                 if feed[0] not in self.adaptime:
-#                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
+                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
                     self.adaptime[feed[0]] = feed[2] # set update times to its defined values. This will be redefined after checkrss() (or not)
                 try:
                     if (nowTime-int(self.last_upd[feed[0]])) > self.adaptime[feed[0]]:
