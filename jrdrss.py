@@ -275,6 +275,7 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* setshort (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed). Use setshort NAME 1 for 'Title only' mode. Use setshort NAME 2 for '1 sentence mode'\n\n"
             msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
+            msg += "* 1..9 - fetch last N news for this feed\n\n"
             if fromjid in self.admins:
                 msg += "* updateall - update all feeds\n"
                 msg += "* update [NAME] - update feed NAME (or this feed)\n\n"
