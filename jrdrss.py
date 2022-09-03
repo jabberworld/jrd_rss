@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.8.6"
+programmVersion="1.9"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -80,12 +80,23 @@ class DB:
 
     def execute(self, sql, param=None):
         try:
+            if not self.cursor:
+                self.connect()
             self.cursor.execute(sql, param)
-        except (AttributeError, MySQLdb.OperationalError):
-            print("No connection to database")
+        except (AttributeError, MySQLdb.OperationalError) as msg:
+            print("No connection to database:"),
+            print(msg)
+            print("DB call from"),
+            print(sys._getframe(1).f_code.co_name)
             self.connect()
             self.cursor.execute(sql, param)
         return self.cursor
+
+#    def close(self):
+#        if self.cursor:
+#            self.cursor.close()
+#            self.cursor = None
+#            #self.conn.close()
 
     def dbfeeds(self):
         self.execute("SELECT feedname, url, timeout, regdate, description, subscribers, private, registrar, tags FROM feeds")
@@ -124,13 +135,9 @@ class Component(pyxmpp.jabberd.Component):
 #    print dbfeeds
 
     def isFeedNameRegistered(self, feedname):
-    #    print("Is registered feed "),
-    #    print(feedname),
         if any(f[0] == feedname for f in self.dbfeeds):
-    #        print(": TRUE")
             return True
         else:
-    #        print(": FALSE")
             return False
 
     def isFeedUrlRegistered(self, furl):
@@ -181,7 +188,7 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
         feedname = iq.get_to().node
-        if not feedname and bodyp[1] == ':':
+        if not feedname and len(bodyp) == 2 and bodyp[1] == ':':
             print("You should specify correct feed name")
             self.sendmsg(tojid, fromjid, "You should specify correct feed name")
             return False
@@ -362,6 +369,7 @@ class Component(pyxmpp.jabberd.Component):
         elif bodyp[0] == 'showfilter' and len(bodyp) < 3:
             if len(bodyp) == 2:
                 feedname = bodyp[1]
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
             self.dbCurTT.execute("SELECT posfilter, negfilter FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
             myfilter = self.dbCurTT.fetchone()
             if myfilter[0]:
@@ -405,6 +413,16 @@ class Component(pyxmpp.jabberd.Component):
                 self.sendmsg(tojid, fromjid, "Feed "+feedname+" is now visible in search")
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed or you are not owner")
+
+        elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and int(bodyp[0]) > 0 and int(bodyp[0]) < 10:
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL ORDER BY datetime DESC LIMIT %s", (feedname, int(bodyp[0])))
+            news = self.dbCurTT.fetchall()
+            self.dbCurTT.execute("SELECT jid, posfilter, negfilter, short FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid))
+            jids = self.dbCurTT.fetchall()
+            for msg in reversed(news):
+                self.sendItem(feedname, {'title': msg[0], 'author': msg[1], 'link': msg[2], 'summary': msg[3]}, jids)
+        #self.dbCurTT.close()
 
     def sendmsg(self, fromjid, tojid, msg):
         m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
@@ -660,7 +678,7 @@ class Component(pyxmpp.jabberd.Component):
                         else:
                             ico = url+'/'+ico
 
-                    ico = makerq(ico)
+                    ico = makerq(ico) # may be in some cases i should use try/except here
             if ico != '':
                 try:
                     png = Image.open(ico)
@@ -835,7 +853,7 @@ class Component(pyxmpp.jabberd.Component):
         if not self.updating:
             for feed in self.dbfeeds:
                 if feed[0] not in self.adaptime:
-                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
+#                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
                     self.adaptime[feed[0]] = feed[2] # set update times to its defined values. This will be redefined after checkrss() (or not)
                 try:
                     if (nowTime-int(self.last_upd[feed[0]])) > self.adaptime[feed[0]]:
@@ -884,7 +902,16 @@ class Component(pyxmpp.jabberd.Component):
                 if not self.isSent(feedname, md5sum):
                     self.sendItem(feedname, i, jids)
                     self.times[feedname].append(time.time())
-                    self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5) VALUES (TRUE, %s, %s)", (feedname, md5sum))
+                    flink = ftitle = fauthor = fsum = None
+                    if 'link' in i:
+                        flink = i["link"][:254]
+                    if 'title' in i:
+                        ftitle = i["title"][:254]
+                    if 'author' in i:
+                        fauthor = i["author"][:126]
+                    if 'summary' in i:
+                        fsum = i["summary"][:8190]
+                    self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5, title, author, link, content) VALUES (TRUE, %s, %s, %s, %s, %s, %s)", (feedname, md5sum, ftitle, fauthor, flink, fsum))
                     time.sleep(0.2)
                 else:
                     self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname = %s AND md5 = %s AND datetime < NOW() - INTERVAL 1 DAY", (feedname, md5sum))
@@ -938,7 +965,7 @@ class Component(pyxmpp.jabberd.Component):
                 if re.search(ii[2], i['title']):
                     print("Matched negative")
                     continue
-            if 'summary' not in i:
+            if 'summary' not in i or i['summary'] == None:
                 summary=u"\n\nNo description"
             else:
                 summary = i["summary"].encode('utf-8')
@@ -978,12 +1005,13 @@ class Component(pyxmpp.jabberd.Component):
                     summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
                 else:
                     summary = u'\n\n'+summary+u'\n\n'
-            if 'author' in i:
+            author = title = ''
+            if 'author' in i and i['author'] != None:
                 author = u" (by "+i["author"]+u")"
-            else:
-                author = u""
+            if 'title' in i and i['title'] != None:
+                title = '*'+i['title']+'*'
 # Conversations doesnt support subject for messages, so all data moved to body:
-            self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), u'*'+i["title"]+u'*\nLink: '+i["link"]+author+summary)
+            self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), title+u'\nLink: '+i["link"]+author+summary)
 #            m=Message(to_jid=JID(ii[0]),
 #                from_jid=feedname+u"@"+self.name,
 #                stanza_type='chat', # was headline # can be "normal","chat","headline","error","groupchat"
