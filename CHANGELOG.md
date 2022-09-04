@@ -184,3 +184,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.9.1
 
 * Fix for utf8mb4 symbols in feed content
+
+## v 1.10
+
+* Добавлена возможность поиска по архиву новостей с помощью команд search (в той ленте, которой отправлена команда) и searchall для поиска по всем лентам. Результаты лимитированы 10 записями.

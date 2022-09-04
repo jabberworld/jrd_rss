@@ -65,7 +65,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.9.1"
+programmVersion="1.10"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -275,6 +275,8 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* setshort (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed). Use setshort NAME 1 for 'Title only' mode. Use setshort NAME 2 for '1 sentence mode'\n\n"
             msg += "* hide [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide [NAME] - make feed NAME (or this feed) public\n\n"
+            msg += "* search SOME STRING - search by title, author or content in this feed\n"
+            msg += "* searchall SOME STRING - search by title, author or content in all feeds\n\n"
             msg += "* 1..9 - fetch last N news for this feed\n\n"
             if fromjid in self.admins:
                 msg += "* updateall - update all feeds\n"
@@ -415,7 +417,7 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed or you are not owner")
 
-        elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and int(bodyp[0]) > 0 and int(bodyp[0]) < 10:
+        elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and 10 > int(bodyp[0]) > 0:
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
             self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL ORDER BY datetime DESC LIMIT %s", (feedname, int(bodyp[0])))
             news = self.dbCurTT.fetchall()
@@ -423,7 +425,38 @@ class Component(pyxmpp.jabberd.Component):
             jids = self.dbCurTT.fetchall()
             for msg in reversed(news):
                 self.sendItem(feedname, {'title': msg[0], 'author': msg[1], 'link': msg[2], 'summary': msg[3]}, jids)
-        #self.dbCurTT.close()
+
+        elif bodyp[0] == 'search' and len(bodyp) > 1 and feedname != None:
+            searchstr = '%'+body[7:]+'%'
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(datetime, '%%Y-%%m-%%d %%H:%%i') FROM sent WHERE feedname = %s AND (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL ORDER BY datetime ASC LIMIT 10", (feedname, searchstr, searchstr, searchstr))
+            self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, None, feedname)
+        elif bodyp[0] == 'searchall' and len(bodyp) > 1:
+            searchstr = '%'+body[10:]+'%'
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(datetime, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL ORDER BY datetime ASC LIMIT 10", (searchstr, searchstr, searchstr))
+            self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, True, None)
+
+    def printsearch(self, data, tojid, fromjid, inall = None, feedname = None):
+        if len(data) > 0:
+            msg = 'Found'
+            if not inall:
+                msg += ' in '+feedname
+            msg += ':\n'
+            for article in data:
+                if article[0] != None:
+                    msg += article[0]
+                else:
+                    msg += 'No title'
+                if article[1] != None:
+                    msg += ' (by '+article[1]+')'
+                msg += ' @ '+str(article[3])
+                if inall:
+                    msg += ' in '+article[4]
+                msg += ': '+article[2]+'\n\n'
+            self.sendmsg(tojid, fromjid, msg)
+        else:
+            self.sendmsg(tojid, fromjid, 'Nothing found')
 
     def sendmsg(self, fromjid, tojid, msg):
         m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
@@ -907,7 +940,7 @@ class Component(pyxmpp.jabberd.Component):
                     if 'link' in i:
                         flink = i["link"][:254]
                     if 'title' in i:
-                        ftitle = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["title"][:254]])
+                        ftitle = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["title"][:254]]) # removing utf8mb4 for python-mysqldb
                     if 'author' in i:
                         fauthor = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["author"][:126]])
                     if 'summary' in i:
