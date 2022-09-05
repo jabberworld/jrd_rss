@@ -66,7 +66,7 @@ admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
 
-programmVersion="1.11"
+programmVersion="1.11.1"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -268,9 +268,9 @@ class Component(pyxmpp.jabberd.Component):
                     self.sendmsg(tojid, fromjid, "Can't find this feed")
 
 # available to all users
-        if bodyp[0] == 'help':
+        if bodyp[0] == 'help' or (bodyp[0] == '?' and len(bodyp) == 1):
             msg =  "List of commands:\n"
-            msg += "* help - show available commands\n\n"
+            msg += "* help or ? - show available commands\n\n"
             msg += "* settags (NAME or ':') TAG1,TAG2,TAG3... - set new tags for feed NAME (or : for this feed)\n"
             msg += "* setupd (NAME or ':') SECS - set new update interval for feed NAME (or : for this feed) in SECS\n"
             msg += "* setdesc (NAME or ':') New feed description - set new feed description for feed NAME (or : for this feed)\n\n"
