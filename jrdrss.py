@@ -138,8 +138,8 @@ class Component(pyxmpp.jabberd.Component):
 
     if sentsize < 3:
         sentsize = 3
-    elif sentsize > 30:
-        sentsize = 30
+    elif sentsize > 365:
+        sentsize = 365
 
     def isFeedNameRegistered(self, feedname):
         if any(f[0] == feedname for f in self.dbfeeds):
