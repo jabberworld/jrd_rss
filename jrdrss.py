@@ -32,6 +32,8 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
+programmVersion="1.11.3"
+
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
 # https://stackoverflow.com/questions/9772691/feedparser-with-timeout
@@ -65,8 +67,6 @@ if int(ICONLOGO):
 admins = []
 for a in dom.getElementsByTagName("admin"):
     admins.append(a.childNodes[0].data)
-
-programmVersion="1.11.2"
 
 # Based on https://stackoverflow.com/questions/207981/how-to-enable-mysql-client-auto-re-connect-with-mysqldb/982873#982873
 # and https://github.com/shinbyh/python-mysqldb-reconnect/blob/master/mysqldb.py
@@ -195,7 +195,7 @@ class Component(pyxmpp.jabberd.Component):
         fromjid = iq.get_from().bare()
         tojid = iq.get_to().bare()
         feedname = iq.get_to().node
-        if not feedname and len(bodyp) == 2 and bodyp[1] == ':':
+        if not feedname and len(bodyp) > 1 and bodyp[1] == ':':
             print("You should specify correct feed name")
             self.sendmsg(tojid, fromjid, "You should specify correct feed name")
             return False
@@ -274,12 +274,17 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* settags or =# (NAME or ':') TAG1,TAG2,TAG3... - set new tags for feed NAME (or : for this feed)\n"
             msg += "* setupd or =@ (NAME or ':') SECS - set new update interval for feed NAME (or : for this feed) in SECS\n"
             msg += "* setdesc or =: (NAME or ':') New feed description - set new feed description for feed NAME (or : for this feed)\n\n"
+            msg += "* showtags or ?# [NAME] - show tags for feed NAME (or this feed)\n"
+            msg += "* showupd or ?@ [NAME] - show update interval for feed NAME (or this feed)\n"
+            msg += "* showdesc or ?: [NAME] - show description for feed NAME (or this feed)\n"
+            msg += "* showadap or ?% [NAME] - show real update time for feed NAME (or this feed)\n"
             msg += "* showmyprivate or ?*** - show my private feeds\n"
             msg += "* showmyfeeds or ?~ - show all feeds where i am registrar\n\n"
             msg += "* setposfilter or =+ (NAME or ':') [EXP] - deliver news for feed NAME (or : for this feed) only with subject matched expression EXP\n"
             msg += "* setnegfilter or =- (NAME or ':') [EXP] - block news for feed NAME (or : for this feed) with subject matched expression EXP\n"
             msg += "* showfilter or ?+- [NAME] - show filters for feed NAME (or this feed)\n\n"
-            msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed). Use setshort NAME 1 for 'Title only' mode. Use setshort NAME 2 for '1 sentence mode'\n\n"
+            msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed). Use setshort NAME 1 for 'Title only' mode. Use setshort NAME 2 for '1 sentence mode'\n"
+            msg += "* showshort or ?... [NAME] - show maximum message size for feed NAME (or this feed)\n\n"
             msg += "* hide or *** [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
             msg += "* search or ? SOME STRING - search by title, author or content in this feed\n"
@@ -351,6 +356,27 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed")
 
+        elif (bodyp[0] == 'showtags' or bodyp[0] == '?#'):
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            for i in (f[8] for f in self.dbfeeds if f[0] == feedname):
+                self.sendmsg(tojid, fromjid, i)
+        elif (bodyp[0] == 'showupd' or bodyp[0] == '?@'):
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            for i in (f[2] for f in self.dbfeeds if f[0] == feedname):
+                self.sendmsg(tojid, fromjid, i)
+        elif (bodyp[0] == 'showdesc' or bodyp[0] == '?:'):
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            for i in (f[4] for f in self.dbfeeds if f[0] == feedname):
+                self.sendmsg(tojid, fromjid, i)
+        elif (bodyp[0] == 'showadap' or bodyp[0] == '?%'):
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            if feedname in self.adaptime:
+                self.sendmsg(tojid, fromjid, self.adaptime[feedname])
+
         elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter' or bodyp[0] == '=+' or bodyp[0] == '=-') and len(bodyp) > 1:
             if bodyp[1] != ':':
                 feedname = bodyp[1]
@@ -402,6 +428,14 @@ class Component(pyxmpp.jabberd.Component):
                 self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
                 self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to unlimited")
             self.dbCurTT.execute("COMMIT")
+        elif (bodyp[0] == 'showshort' or bodyp[0] == '?...'):
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            self.dbCurTT.execute("SELECT short FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
+            myshort = self.dbCurTT.fetchone()
+            if myshort:
+                self.sendmsg(tojid, fromjid, myshort[0])
 
         elif (bodyp[0] == 'hide' or bodyp[0] == '***') and len(bodyp) < 3:
             if len(bodyp) == 2:
