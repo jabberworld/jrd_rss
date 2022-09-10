@@ -32,7 +32,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.11.3"
+programmVersion="1.11.4"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -283,7 +283,8 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* setposfilter or =+ (NAME or ':') [EXP] - deliver news for feed NAME (or : for this feed) only with subject matched expression EXP\n"
             msg += "* setnegfilter or =- (NAME or ':') [EXP] - block news for feed NAME (or : for this feed) with subject matched expression EXP\n"
             msg += "* showfilter or ?+- [NAME] - show filters for feed NAME (or this feed)\n\n"
-            msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed). Use setshort NAME 1 for 'Title only' mode. Use setshort NAME 2 for '1 sentence mode'\n"
+            msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed).\n"
+            msg += "  * Use setshort NAME 1 for 'Title only' mode.\n  * Use setshort NAME 2 for '1 sentence mode'.\n  * Use setshort NAME 3 for '1 paragraph' mode.\n"
             msg += "* showshort or ?... [NAME] - show maximum message size for feed NAME (or this feed)\n\n"
             msg += "* hide or *** [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
@@ -1076,6 +1077,8 @@ class Component(pyxmpp.jabberd.Component):
                     summary = ''
                 elif ii[3] == 2:
                     summary = u'\n\n'+re.split(r'\.|!|\?', summary)[0]+u'\n\n'
+                elif ii[3] == 3:
+                    summary = u'\n\n'+re.split(r'\n', summary)[0]+u'\n\n'
                 elif ii[3] != 0 and len(summary) > ii[3]:
                     summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
                 else:
