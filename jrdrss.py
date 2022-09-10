@@ -32,7 +32,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.11.4"
+programmVersion="1.11.5"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -436,7 +436,16 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCurTT.execute("SELECT short FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
             myshort = self.dbCurTT.fetchone()
             if myshort:
-                self.sendmsg(tojid, fromjid, myshort[0])
+                msg = int(myshort[0])
+                if msg == 0:
+                    msg = 'Unlimited'
+                elif msg == 1:
+                    msg = 'Title only'
+                elif msg == 2:
+                    msg = 'Only 1 sentence'
+                elif msg == 3:
+                    msg = 'Only 1 paragraph'
+                self.sendmsg(tojid, fromjid, msg)
 
         elif (bodyp[0] == 'hide' or bodyp[0] == '***') and len(bodyp) < 3:
             if len(bodyp) == 2:
