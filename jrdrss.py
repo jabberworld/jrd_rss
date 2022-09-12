@@ -32,7 +32,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.11.5"
+programmVersion="1.12"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -251,7 +251,7 @@ class Component(pyxmpp.jabberd.Component):
                     feedname = bodyp[1]
                 if any(feedname in fn for fn in self.dbfeeds) and feedname != None:
                     print("purgelast for "+feedname)
-                    self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s ORDER BY datetime DESC LIMIT 1", (feedname,))
+                    self.dbCurTT.execute("DELETE FROM sent WHERE feedname = %s ORDER BY income DESC LIMIT 1", (feedname,))
                     self.dbCurTT.execute("COMMIT")
                     self.sendmsg(tojid, fromjid, "Purged last record for "+feedname)
                 else:
@@ -470,7 +470,7 @@ class Component(pyxmpp.jabberd.Component):
 
         elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and 10 > int(bodyp[0]) > 0:
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
-            self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL ORDER BY datetime DESC LIMIT %s", (feedname, int(bodyp[0])))
+            self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL ORDER BY income DESC LIMIT %s", (feedname, int(bodyp[0])))
             news = self.dbCurTT.fetchall()
             self.dbCurTT.execute("SELECT jid, posfilter, negfilter, short FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid))
             jids = self.dbCurTT.fetchall()
@@ -480,12 +480,12 @@ class Component(pyxmpp.jabberd.Component):
         elif (bodyp[0] == 'search' or bodyp[0] == '?') and len(bodyp) > 1 and feedname != None:
             searchstr = '%'+body[len(bodyp[0])+1:]+'%'
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
-            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(datetime, '%%Y-%%m-%%d %%H:%%i') FROM sent WHERE feedname = %s AND (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL ORDER BY datetime ASC LIMIT 10", (feedname, searchstr, searchstr, searchstr))
+            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i') FROM sent WHERE feedname = %s AND (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL ORDER BY income ASC LIMIT 10", (feedname, searchstr, searchstr, searchstr))
             self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, None, feedname)
         elif (bodyp[0] == 'searchall' or bodyp[0] == '?!') and len(bodyp) > 1:
             searchstr = '%'+body[len(bodyp[0])+1:]+'%'
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
-            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(datetime, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL ORDER BY datetime ASC LIMIT 10", (searchstr, searchstr, searchstr))
+            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL ORDER BY income ASC LIMIT 10", (searchstr, searchstr, searchstr))
             self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, True, None)
 
     def printsearch(self, data, tojid, fromjid, inall = None, feedname = None):
@@ -996,10 +996,10 @@ class Component(pyxmpp.jabberd.Component):
                         fauthor = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["author"][:126]])
                     if 'summary' in i:
                         fsum = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["summary"][:8190]])
-                    self.dbCurUT.execute("INSERT INTO sent (received, feedname, md5, title, author, link, content) VALUES (TRUE, %s, %s, %s, %s, %s, %s)", (feedname, md5sum, ftitle, fauthor, flink, fsum))
+                    self.dbCurUT.execute("INSERT INTO sent (feedname, md5, title, author, link, content) VALUES (%s, %s, %s, %s, %s, %s)", (feedname, md5sum, ftitle, fauthor, flink, fsum))
                     time.sleep(0.2)
                 else:
-                    self.dbCurUT.execute("UPDATE sent SET received = TRUE, datetime = NOW() WHERE feedname = %s AND md5 = %s AND datetime < NOW() - INTERVAL 1 DAY", (feedname, md5sum))
+                    self.dbCurUT.execute("UPDATE sent SET datetime = NOW() WHERE feedname = %s AND md5 = %s AND datetime < NOW() - INTERVAL %s DAY", (feedname, md5sum, self.sentsize-1))
 
             for ft in self.times[feedname]:
                 if ft > time.time() - 86400:
@@ -1021,13 +1021,13 @@ class Component(pyxmpp.jabberd.Component):
             print("End of update")
             self.botstatus(feedname, jids[0])
 # purging old records
-        self.dbCurUT.execute("DELETE FROM sent WHERE received = '1' AND datetime < NOW() - INTERVAL %s DAY", (self.sentsize,))
+        self.dbCurUT.execute("DELETE FROM sent WHERE datetime < NOW() - INTERVAL %s DAY", (self.sentsize,))
         self.dbCurUT.execute("COMMIT")
         print("End of checkrss")
         self.updating = 0
 
     def isSent(self, feedname, md5sum):
-        self.dbCurUT.execute("SELECT count(received) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
+        self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
         a=self.dbCurUT.fetchone()
         if a[0]>0:
             return True
