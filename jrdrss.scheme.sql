@@ -23,7 +23,6 @@ short INT DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sent (
-md5 varchar(32),
 feedname varchar(255),
 title VARCHAR(255) DEFAULT NULL,
 author VARCHAR(127) DEFAULT NULL,

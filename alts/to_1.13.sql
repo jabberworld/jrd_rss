@@ -1,0 +1,1 @@
+ALTER TABLE sent DROP COLUMN md5;

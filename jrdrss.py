@@ -21,7 +21,6 @@ import re
 import urlparse
 import socket
 import MySQLdb
-from hashlib import md5
 
 from pyxmpp.jid import JID
 from pyxmpp.presence import Presence
@@ -32,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.12"
+programmVersion="1.13"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -983,23 +982,22 @@ class Component(pyxmpp.jabberd.Component):
                 self.botstatus(feedname, jids[0]) # Send XA status if problems with feed
                 continue
             for i in reversed(d["items"]):
-                md5sum = md5(i["link"].encode("utf-8")+i["title"].encode("utf-8")).hexdigest()
-                if not self.isSent(feedname, md5sum):
+                flink = ftitle = fauthor = fsum = None
+                if 'link' in i:
+                    flink = i["link"][:254]
+                if 'title' in i:
+                    ftitle = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["title"][:254]]) # removing utf8mb4 for python-mysqldb
+                if not self.isSent(feedname, flink+ftitle):
                     self.sendItem(feedname, i, jids)
                     self.times[feedname].append(time.time())
-                    flink = ftitle = fauthor = fsum = None
-                    if 'link' in i:
-                        flink = i["link"][:254]
-                    if 'title' in i:
-                        ftitle = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["title"][:254]]) # removing utf8mb4 for python-mysqldb
                     if 'author' in i:
                         fauthor = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["author"][:126]])
                     if 'summary' in i:
                         fsum = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["summary"][:8190]])
-                    self.dbCurUT.execute("INSERT INTO sent (feedname, md5, title, author, link, content) VALUES (%s, %s, %s, %s, %s, %s)", (feedname, md5sum, ftitle, fauthor, flink, fsum))
+                    self.dbCurUT.execute("INSERT INTO sent (feedname, title, author, link, content) VALUES (%s, %s, %s, %s, %s)", (feedname, ftitle, fauthor, flink, fsum))
                     time.sleep(0.2)
                 else:
-                    self.dbCurUT.execute("UPDATE sent SET datetime = NOW() WHERE feedname = %s AND md5 = %s AND datetime < NOW() - INTERVAL %s DAY", (feedname, md5sum, self.sentsize-1))
+                    self.dbCurUT.execute("UPDATE sent SET datetime = NOW() WHERE feedname = %s AND link = %s AND title = %s AND datetime < NOW() - INTERVAL %s DAY", (feedname, flink, ftitle, self.sentsize-1))
 
             for ft in self.times[feedname]:
                 if ft > time.time() - 86400:
@@ -1026,8 +1024,8 @@ class Component(pyxmpp.jabberd.Component):
         print("End of checkrss")
         self.updating = 0
 
-    def isSent(self, feedname, md5sum):
-        self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND md5 = %s", (feedname, md5sum))
+    def isSent(self, feedname, uniq):
+        self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title) = %s", (feedname, uniq))
         a=self.dbCurUT.fetchone()
         if a[0]>0:
             return True
