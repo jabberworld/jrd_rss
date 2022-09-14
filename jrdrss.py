@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.13.1"
+programmVersion="1.13.2"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -289,6 +289,7 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
             msg += "* search or ? SOME STRING - search by title, author or content in this feed\n"
             msg += "* searchintag or ?!# TAG SOME STRING - search by title, author or content in TAG\n"
+            msg += "* searchtitle or ?!* SOME STRING - search by title in all feeds\n"
             msg += "* searchall or ?! SOME STRING - search by title, author or content in all feeds\n\n"
             msg += "* 1..9 - fetch last N news for this feed\n\n"
             if fromjid in self.admins:
@@ -492,6 +493,11 @@ class Component(pyxmpp.jabberd.Component):
             searchtag = '%'+bodyp[1]+'%'
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
             self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL AND feedname IN (SELECT feedname FROM feeds WHERE tags LIKE %s) GROUP BY link ORDER BY income ASC LIMIT 10", (searchstr, searchstr, searchstr, searchtag))
+            self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, True, None)
+        elif (bodyp[0] == 'searchtitle' or bodyp[0] == '?!*') and len(bodyp) > 1:
+            searchstr = '%'+body[len(bodyp[0])+1:]+'%'
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE title LIKE %s AND link IS NOT NULL ORDER BY income ASC LIMIT 10", (searchstr, ))
             self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, True, None)
 
     def printsearch(self, data, tojid, fromjid, inall = None, feedname = None):
