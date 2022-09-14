@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.13.2"
+programmVersion="1.13.3"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -492,7 +492,7 @@ class Component(pyxmpp.jabberd.Component):
             searchstr = '%'+body[body.rfind(bodyp[2]):]+'%'
             searchtag = '%'+bodyp[1]+'%'
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
-            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL AND feedname IN (SELECT feedname FROM feeds WHERE tags LIKE %s) GROUP BY link ORDER BY income ASC LIMIT 10", (searchstr, searchstr, searchstr, searchtag))
+            self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i'), sent.feedname FROM sent INNER JOIN feeds ON sent.feedname = feeds.feedname WHERE (author LIKE %s OR title LIKE %s OR content LIKE %s) AND link IS NOT NULL AND feeds.tags LIKE %s GROUP BY link ORDER BY income ASC LIMIT 10", (searchstr, searchstr, searchstr, searchtag))
             self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, True, None)
         elif (bodyp[0] == 'searchtitle' or bodyp[0] == '?!*') and len(bodyp) > 1:
             searchstr = '%'+body[len(bodyp[0])+1:]+'%'

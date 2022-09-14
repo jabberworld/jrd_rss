@@ -243,3 +243,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.13.2
 
 * Добавлена команда глобального поиска по заголовкам - ``searchtitle`` или ``?!*``.
+
+## v 1.13.3
+
+* Подзапрос в SQL для ``searchtitle`` заменен на JOIN.
