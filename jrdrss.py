@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.13.3"
+programmVersion="1.13.4"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -200,19 +200,19 @@ class Component(pyxmpp.jabberd.Component):
             return False
         if fromjid in self.admins:
             if bodyp[0] == '+' and len(bodyp) > 4 and bodyp[3].isdigit(): # + feedname url interval description [tags]
-                if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and feedparser.parse(bodyp[2])["bozo"] == 0:
+                fd = feedparser.parse(bodyp[2])
+                if bool(urlparse.urlparse(bodyp[2]).netloc) and not any(bodyp[2] in url for url in self.dbfeeds) and not any(bodyp[1] in feed for feed in self.dbfeeds) and (fd["bozo"] == 0 or (fd["bozo"] == 1 and type(fd.bozo_exception).__name__ == 'NonXMLContentType')):
                     fint = bodyp[3]
                     if fint < 60:
                         fint = 60
                     tagmark = body.rfind("SETTAGS:")
                     if tagmark < 0:
                         tagmark = None
-                    fdesc = body[body.rfind(bodyp[4]):tagmark].strip()
-                    if tagmark:
+                        ftags = u''
+                    else:
                         ftags = body[tagmark+8:]
                         ftags = re.sub(' *, *', ',', ftags.strip())
-                    else:
-                        ftags = u''
+                    fdesc = body[body.rfind(bodyp[4], 0, tagmark):tagmark].strip()
                     self.dbCurTT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (bodyp[1], bodyp[2], fdesc, 0, fint, 0, fromjid, ftags))
                     self.dbCurTT.execute("COMMIT")
                     self.dbfeeds = self.dbCurTT.dbfeeds()
@@ -998,15 +998,18 @@ class Component(pyxmpp.jabberd.Component):
             try:
                 print("FETCHING"),
                 print(feed[1])
-                d=feedparser.parse(feed[1])
-                bozo=d["bozo"]
+                d = feedparser.parse(feed[1])
+                bozo = d["bozo"]
             except:
                 continue
-            if bozo==1:
-                print("Some problems with feed")
-                self.new[feedname] = -1
-                self.botstatus(feedname, jids[0]) # Send XA status if problems with feed
-                continue
+            if bozo == 1:
+                if type(d.bozo_exception).__name__ != 'NonXMLContentType':
+                    print("Some problems with feed")
+                    self.new[feedname] = -1
+                    self.botstatus(feedname, jids[0]) # Send XA status if problems with feed
+                    continue
+                else:
+                    print('Bozo flag: NonXMLContentType in '+feedname)
             for i in reversed(d["items"]):
                 flink = ftitle = fauthor = fsum = None
                 if 'link' in i:
