@@ -343,7 +343,7 @@ class Component(pyxmpp.jabberd.Component):
                 self.dbCurTT.execute("UPDATE feeds SET timeout = %s WHERE feedname = %s", (newupd, feedname,))
                 self.dbCurTT.execute("COMMIT")
                 self.dbfeeds = self.dbCurTT.dbfeeds()
-                self.sendmsg(tojid, fromjid, "New update interval for "+feedname+": "+str(newupd))
+                self.sendmsg(tojid, fromjid, "New update interval for "+feedname+": "+str(newupd)+' seconds')
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed")
         elif (bodyp[0] == 'setdesc' or bodyp[0] == '=:') and len(bodyp) > 2 and (any(fromjid == f[7] for f in self.dbfeeds) or fromjid in self.admins):
@@ -367,7 +367,7 @@ class Component(pyxmpp.jabberd.Component):
             if len(bodyp) > 1:
                 feedname = bodyp[1]
             for i in (f[2] for f in self.dbfeeds if f[0] == feedname):
-                self.sendmsg(tojid, fromjid, i)
+                self.sendmsg(tojid, fromjid, 'Feed update interval: '+str(i)+' seconds')
         elif (bodyp[0] == 'showdesc' or bodyp[0] == '?:'):
             if len(bodyp) > 1:
                 feedname = bodyp[1]
@@ -377,7 +377,7 @@ class Component(pyxmpp.jabberd.Component):
             if len(bodyp) > 1:
                 feedname = bodyp[1]
             if feedname in self.adaptime:
-                self.sendmsg(tojid, fromjid, self.adaptime[feedname])
+                self.sendmsg(tojid, fromjid, 'Feed real update interval: '+str(self.adaptime[feedname])+' seconds')
 
         elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter' or bodyp[0] == '=+' or bodyp[0] == '=-') and len(bodyp) > 1:
             if bodyp[1] != ':':
@@ -425,7 +425,16 @@ class Component(pyxmpp.jabberd.Component):
                 feedname = bodyp[1]
             if len(bodyp) == 3 and bodyp[2].isdigit():
                 self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[2], feedname, fromjid,))
-                self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to "+bodyp[2])
+                msg = int(bodyp[2])
+                if msg == 0:
+                    msg = 'unlimited'
+                elif msg == 1:
+                    msg = 'title only'
+                elif msg == 2:
+                    msg = '1 sentence'
+                elif msg == 3:
+                    msg = '1 paragraph'
+                self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to "+msg)
             elif len(bodyp) == 2:
                 self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
                 self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to unlimited")
@@ -968,6 +977,9 @@ class Component(pyxmpp.jabberd.Component):
         else:
             print("Update in progress")
 
+    def strip_utf8mb4(self, mb4):
+        return ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in mb4])
+
     def checkrss(self, checkfeeds):
         for feed in checkfeeds:
             feedname = feed[0]
@@ -1000,14 +1012,14 @@ class Component(pyxmpp.jabberd.Component):
                 if 'link' in i:
                     flink = i["link"][:254]
                 if 'title' in i:
-                    ftitle = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["title"][:254]]) # removing utf8mb4 for python-mysqldb
+                    ftitle = self.strip_utf8mb4(i["title"][:254]) # removing utf8mb4 for python-mysqldb
                 if not self.isSent(feedname, flink+ftitle):
                     self.sendItem(feedname, i, jids)
                     self.times[feedname].append(time.time())
                     if 'author' in i:
-                        fauthor = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["author"][:126]])
+                        fauthor = self.strip_utf8mb4(i["author"][:126])
                     if 'summary' in i:
-                        fsum = ''.join([c if len(c.encode('utf-8')) < 4 else '*' for c in i["summary"][:8190]])
+                        fsum = self.strip_utf8mb4(i["summary"][:8190])
                     self.dbCurUT.execute("INSERT INTO sent (feedname, title, author, link, content) VALUES (%s, %s, %s, %s, %s)", (feedname, ftitle, fauthor, flink, fsum))
                     time.sleep(0.2)
                 else:
