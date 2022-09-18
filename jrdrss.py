@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.13.4"
+programmVersion="1.13.5"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -425,14 +425,14 @@ class Component(pyxmpp.jabberd.Component):
                 feedname = bodyp[1]
             if len(bodyp) == 3 and bodyp[2].isdigit():
                 self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[2], feedname, fromjid,))
-                msg = int(bodyp[2])
-                if msg == 0:
+                msg = str(bodyp[2])
+                if msg == '0':
                     msg = 'unlimited'
-                elif msg == 1:
+                elif msg == '1':
                     msg = 'title only'
-                elif msg == 2:
+                elif msg == '2':
                     msg = '1 sentence'
-                elif msg == 3:
+                elif msg == '3':
                     msg = '1 paragraph'
                 self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to "+msg)
             elif len(bodyp) == 2:
@@ -446,14 +446,14 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCurTT.execute("SELECT short FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
             myshort = self.dbCurTT.fetchone()
             if myshort:
-                msg = int(myshort[0])
-                if msg == 0:
+                msg = str(myshort[0])
+                if msg == '0':
                     msg = 'Unlimited'
-                elif msg == 1:
+                elif msg == '1':
                     msg = 'Title only'
-                elif msg == 2:
+                elif msg == '2':
                     msg = 'Only 1 sentence'
-                elif msg == 3:
+                elif msg == '3':
                     msg = 'Only 1 paragraph'
                 self.sendmsg(tojid, fromjid, msg)
 
