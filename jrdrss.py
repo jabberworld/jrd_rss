@@ -1092,6 +1092,7 @@ class Component(pyxmpp.jabberd.Component):
                 summary=summary.replace("&hellip;","…")
                 summary=summary.replace('&quot;','"')
                 summary=summary.replace("&nbsp;"," ")
+                summary=summary.replace("&#160;"," ")
                 summary=summary.replace("&ndash;","–")
                 summary=summary.replace("&mdash;","—")
                 summary=summary.replace("&laquo;","«")
