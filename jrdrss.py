@@ -870,6 +870,7 @@ class Component(pyxmpp.jabberd.Component):
         if searchField=='%%' or len(searchField)<5:
             self.stream.send(iq.make_error_response("not-acceptable"))
             return
+        self.dbCurST.execute("COMMIT")
         self.dbCurST.execute("SELECT feedname, description, url, subscribers, timeout FROM feeds WHERE (feedname LIKE %s OR description LIKE %s OR url LIKE %s OR tags LIKE %s) AND (private = '0' OR (private = '1' AND registrar = %s))", (searchField, searchField, searchField, searchField, fromjid))
         a=self.dbCurST.fetchall()
 
@@ -990,6 +991,7 @@ class Component(pyxmpp.jabberd.Component):
             self.new[feedname] = 0
             self.lasthournew[feedname] = 0
 
+            self.dbCurUT.execute("COMMIT")
             self.dbCurUT.execute("SELECT jid, posfilter, negfilter, short FROM subscribers WHERE feedname = %s", (feedname,))
             jids=self.dbCurUT.fetchall()
 
@@ -1209,6 +1211,7 @@ class Component(pyxmpp.jabberd.Component):
     def presence_control(self, stanza):
         feedname = stanza.get_to().node
         fromjid = stanza.get_from().bare()
+        self.dbCurPT.execute("COMMIT")
         self.dbCurPT.execute("SELECT count(feedname) FROM subscribers WHERE jid = %s AND feedname = %s", (fromjid, feedname))
         a=self.dbCurPT.fetchone()
         print("Got "+str(stanza.get_type())+" request from "+str(fromjid)+" to"),
