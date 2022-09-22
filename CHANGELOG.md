@@ -255,3 +255,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.13.5
 
 * Bugfix
+
+## v 1.13.6
+
+* Small changes in sendItem()

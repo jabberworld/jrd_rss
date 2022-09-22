@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.13.5"
+programmVersion="1.13.6"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -1068,6 +1068,40 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.send(p)
 
     def sendItem(self, feedname, i, jids):
+        if 'summary' not in i or i['summary'] == None:
+            summary = u"\n\nNo description"
+        else:
+            summary = i["summary"].encode('utf-8')
+            summary = re.sub('<br ??/??>','\n',summary)
+            summary = re.sub('<blockquote[^>]*>\n?', '> «', summary)
+            summary = re.sub('\n +\n', '\n', summary)
+            summary = re.sub('\n\n+','\n',summary)
+            summary = re.sub('\n?</blockquote>', '»\n', summary)
+            summary = re.sub('<[^>]*>','',summary)
+            summary = re.sub('\n»', '»', summary)
+            summary = re.sub('»\n(?!\n)', '»\n\n', summary)
+            summary = summary.replace("&hellip;","…")
+            summary = summary.replace('&quot;','"')
+            summary = summary.replace("&nbsp;"," ")
+            summary = summary.replace("&#160;"," ")
+            summary = summary.replace("&ndash;","–")
+            summary = summary.replace("&mdash;","—")
+            summary = summary.replace("&laquo;","«")
+            summary = summary.replace("&raquo;","»")
+            summary = summary.replace("&#171;", "«")
+            summary = summary.replace("&#187;", "»")
+            summary = summary.replace("&ldquo;","“")
+            summary = summary.replace("&rdquo;","”")
+            summary = summary.replace("&bdquo;","„")
+            summary = summary.replace("&rsquo;","’")
+            summary = summary.replace("&lsquo;","‘")
+            summary = summary.replace("&#8222;","„")
+            summary = summary.replace("&#8220;","“")
+            summary = summary.replace("&amp;","&")
+            summary = summary.replace("&lt;","<")
+            summary = summary.replace("&gt;",">")
+            summary = unicode(summary, 'utf-8')
+
         for ii in jids:
             if ii[1]:
                 if not re.search(ii[1], i['title']):
@@ -1077,49 +1111,18 @@ class Component(pyxmpp.jabberd.Component):
                 if re.search(ii[2], i['title']):
                     print("Matched negative")
                     continue
-            if 'summary' not in i or i['summary'] == None:
-                summary=u"\n\nNo description"
+
+            if ii[3] == 1:
+                summary = ''
+            elif ii[3] == 2:
+                summary = u'\n\n'+re.split(r'\.|!|\?', summary)[0]+u'\n\n'
+            elif ii[3] == 3:
+                summary = u'\n\n'+re.split(r'\n', summary)[0]+u'\n\n'
+            elif ii[3] != 0 and len(summary) > ii[3]:
+                summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
             else:
-                summary = i["summary"].encode('utf-8')
-                summary = re.sub('<br ??/??>','\n',summary)
-                summary = re.sub('<blockquote[^>]*>\n?', '> «', summary)
-                summary = re.sub('\n +\n', '\n', summary)
-                summary = re.sub('\n\n+','\n',summary)
-                summary = re.sub('\n?</blockquote>', '»\n', summary)
-                summary = re.sub('<[^>]*>','',summary)
-                summary = re.sub('\n»', '»', summary)
-                summary = re.sub('»\n(?!\n)', '»\n\n', summary)
-                summary=summary.replace("&hellip;","…")
-                summary=summary.replace('&quot;','"')
-                summary=summary.replace("&nbsp;"," ")
-                summary=summary.replace("&#160;"," ")
-                summary=summary.replace("&ndash;","–")
-                summary=summary.replace("&mdash;","—")
-                summary=summary.replace("&laquo;","«")
-                summary=summary.replace("&raquo;","»")
-                summary=summary.replace("&#171;", "«")
-                summary=summary.replace("&#187;", "»")
-                summary=summary.replace("&ldquo;","“")
-                summary=summary.replace("&rdquo;","”")
-                summary=summary.replace("&bdquo;","„")
-                summary=summary.replace("&rsquo;","’")
-                summary=summary.replace("&lsquo;","‘")
-                summary=summary.replace("&#8222;","„")
-                summary=summary.replace("&#8220;","“")
-                summary=summary.replace("&amp;","&")
-                summary=summary.replace("&lt;","<")
-                summary=summary.replace("&gt;",">")
-                summary = unicode(summary, 'utf-8')
-                if ii[3] == 1:
-                    summary = ''
-                elif ii[3] == 2:
-                    summary = u'\n\n'+re.split(r'\.|!|\?', summary)[0]+u'\n\n'
-                elif ii[3] == 3:
-                    summary = u'\n\n'+re.split(r'\n', summary)[0]+u'\n\n'
-                elif ii[3] != 0 and len(summary) > ii[3]:
-                    summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
-                else:
-                    summary = u'\n\n'+summary+u'\n\n'
+                summary = u'\n\n'+summary+u'\n\n'
+
             author = title = ''
             if 'author' in i and i['author'] != None:
                 author = u" (by "+i["author"]+u")"
@@ -1127,6 +1130,7 @@ class Component(pyxmpp.jabberd.Component):
                 title = '*'+i['title']+'*'
 # Conversations doesnt support subject for messages, so all data moved to body:
             self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), title+u'\nLink: '+i["link"]+author+summary)
+
 #            m=Message(to_jid=JID(ii[0]),
 #                from_jid=feedname+u"@"+self.name,
 #                stanza_type='chat', # was headline # can be "normal","chat","headline","error","groupchat"
