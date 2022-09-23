@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.13.6"
+programmVersion="1.14"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -99,7 +99,7 @@ class DB:
 #            #self.conn.close()
 
     def dbfeeds(self):
-        self.execute("SELECT feedname, url, timeout, regdate, description, subscribers, private, registrar, tags FROM feeds")
+        self.execute("SELECT feedname, url, timeout, regdate, description, subscribers, private, registrar, tags, checktype FROM feeds")
         return self.cursor.fetchall()
 
     def fetchone(self):
@@ -272,10 +272,12 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* help or ? - show available commands\n\n"
             msg += "* settags or =# (NAME or ':') TAG1,TAG2,TAG3... - set new tags for feed NAME (or : for this feed)\n"
             msg += "* setupd or =@ (NAME or ':') SECS - set new update interval for feed NAME (or : for this feed) in SECS\n"
+            msg += "* setuniq or =() (NAME or ':') (link | title | content) - set news uniqueness check type for feed NAME (or : for this feed)\n"
             msg += "* setdesc or =: (NAME or ':') New feed description - set new feed description for feed NAME (or : for this feed)\n\n"
             msg += "* showtags or ?# [NAME] - show tags for feed NAME (or this feed)\n"
             msg += "* showupd or ?@ [NAME] - show update interval for feed NAME (or this feed)\n"
             msg += "* showdesc or ?: [NAME] - show description for feed NAME (or this feed)\n"
+            msg += "* showuniq or ?() [NAME] - show news uniqueness check type for feed NAME (or this feed)\n"
             msg += "* showadap or ?% [NAME] - show real update time for feed NAME (or this feed)\n"
             msg += "* showmyprivate or ?*** - show my private feeds\n"
             msg += "* showmyfeeds or ?~ - show all feeds where i am registrar\n\n"
@@ -283,7 +285,7 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* setnegfilter or =- (NAME or ':') [EXP] - block news for feed NAME (or : for this feed) with subject matched expression EXP\n"
             msg += "* showfilter or ?+- [NAME] - show filters for feed NAME (or this feed)\n\n"
             msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed).\n"
-            msg += "  * Use setshort NAME 1 for 'Title only' mode.\n  * Use setshort NAME 2 for '1 sentence mode'.\n  * Use setshort NAME 3 for '1 paragraph' mode.\n"
+            msg += "  * Use setshort NAME 1 for 'Title only' mode.\n  * Use setshort NAME 2 for '1st sentence mode'.\n  * Use setshort NAME 3 for '1st paragraph' mode.\n"
             msg += "* showshort or ?... [NAME] - show maximum message size for feed NAME (or this feed)\n\n"
             msg += "* hide or *** [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
@@ -357,6 +359,23 @@ class Component(pyxmpp.jabberd.Component):
                 self.sendmsg(tojid, fromjid, "New description for "+feedname+": "+newdesc)
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed")
+        elif (bodyp[0] == 'setuniq' or bodyp[0] == '=()') and len(bodyp) == 3 and (any(fromjid == f[7] for f in self.dbfeeds) or fromjid in self.admins):
+            newuniq = str(bodyp[2])
+            if newuniq == 'title':
+                newuniq = 1
+            elif newuniq == 'content':
+                newuniq = 2
+            else:
+                newuniq = 0
+            if bodyp[1] != ':':
+                feedname = bodyp[1]
+            if any(f[0] == feedname for f in self.dbfeeds):
+                self.dbCurTT.execute("UPDATE feeds SET checktype = %s WHERE feedname = %s", (newuniq, feedname,))
+                self.dbCurTT.execute("COMMIT")
+                self.dbfeeds = self.dbCurTT.dbfeeds()
+                self.sendmsg(tojid, fromjid, "New news uniqueness check type for "+feedname+": "+bodyp[2])
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed")
 
         elif (bodyp[0] == 'showtags' or bodyp[0] == '?#'):
             if len(bodyp) > 1:
@@ -378,6 +397,17 @@ class Component(pyxmpp.jabberd.Component):
                 feedname = bodyp[1]
             if feedname in self.adaptime:
                 self.sendmsg(tojid, fromjid, 'Feed real update interval: '+str(self.adaptime[feedname])+' seconds')
+        elif (bodyp[0] == 'showuniq' or bodyp[0] == '?()'):
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            for i in (f[9] for f in self.dbfeeds if f[0] == feedname):
+                if i == 1:
+                    myuniq = 'title'
+                elif i == 2:
+                    myuniq = 'content'
+                else:
+                    myuniq = 'link'
+                self.sendmsg(tojid, fromjid, 'News uniqueness check type: '+myuniq)
 
         elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter' or bodyp[0] == '=+' or bodyp[0] == '=-') and len(bodyp) > 1:
             if bodyp[1] != ':':
@@ -431,9 +461,9 @@ class Component(pyxmpp.jabberd.Component):
                 elif msg == '1':
                     msg = 'title only'
                 elif msg == '2':
-                    msg = '1 sentence'
+                    msg = '1st sentence'
                 elif msg == '3':
-                    msg = '1 paragraph'
+                    msg = '1st paragraph'
                 self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to "+msg)
             elif len(bodyp) == 2:
                 self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
@@ -452,9 +482,9 @@ class Component(pyxmpp.jabberd.Component):
                 elif msg == '1':
                     msg = 'Title only'
                 elif msg == '2':
-                    msg = 'Only 1 sentence'
+                    msg = 'Only 1st sentence'
                 elif msg == '3':
-                    msg = 'Only 1 paragraph'
+                    msg = 'Only 1st paragraph'
                 self.sendmsg(tojid, fromjid, msg)
 
         elif (bodyp[0] == 'hide' or bodyp[0] == '***') and len(bodyp) < 3:
@@ -675,6 +705,16 @@ class Component(pyxmpp.jabberd.Component):
             topt.setProp("label", t)
             topt.newChild(None, "value", t)
 
+        ctyp = form.newChild(None, "field", None)
+        ctyp.setProp("type", "list-single")
+        ctyp.setProp("var", "checktype")
+        ctyp.setProp("label", "News uniqueness")
+        ctyp.newChild(None, "value", "By link only")
+        for t in ['By link only', 'By link + title', 'By link + title + content']:
+            ctopt = ctyp.newChild(None, "option", None)
+            ctopt.setProp("label", t)
+            ctopt.newChild(None, "value", t)
+
         self.stream.send(iq)
 
     def set_register(self,iq):
@@ -682,13 +722,14 @@ class Component(pyxmpp.jabberd.Component):
             self.stream.send(iq.make_error_response("feature-not-implemented"))
             return
 
-        fname=iq.xpath_eval("//r:field[@var='feedname']/r:value",{"r":"jabber:x:data"})
-        furl=iq.xpath_eval("//r:field[@var='url']/r:value",{"r":"jabber:x:data"})
-        fdesc=iq.xpath_eval("//r:field[@var='desc']/r:value",{"r":"jabber:x:data"})
-        fsubs=iq.xpath_eval("//r:field[@var='tosubscribe']/r:value",{"r":"jabber:x:data"})
-        fpriv=iq.xpath_eval("//r:field[@var='private']/r:value",{"r":"jabber:x:data"})
-        ftime=iq.xpath_eval("//r:field[@var='timeout']/r:value",{"r":"jabber:x:data"})
-        ftags=iq.xpath_eval("//r:field[@var='tags']/r:value",{"r":"jabber:x:data"})
+        fname = iq.xpath_eval("//r:field[@var='feedname']/r:value",{"r":"jabber:x:data"})
+        furl = iq.xpath_eval("//r:field[@var='url']/r:value",{"r":"jabber:x:data"})
+        fdesc = iq.xpath_eval("//r:field[@var='desc']/r:value",{"r":"jabber:x:data"})
+        fsubs = iq.xpath_eval("//r:field[@var='tosubscribe']/r:value",{"r":"jabber:x:data"})
+        fpriv = iq.xpath_eval("//r:field[@var='private']/r:value",{"r":"jabber:x:data"})
+        ftime = iq.xpath_eval("//r:field[@var='timeout']/r:value",{"r":"jabber:x:data"})
+        ftags = iq.xpath_eval("//r:field[@var='tags']/r:value",{"r":"jabber:x:data"})
+        ctype = iq.xpath_eval("//r:field[@var='checktype']/r:value",{"r":"jabber:x:data"})
         if fname and furl and fdesc:
             fname=fname[0].getContent().lower()
             furl=furl[0].getContent()
@@ -711,6 +752,8 @@ class Component(pyxmpp.jabberd.Component):
             fsubs=False
         if ftime:
             ftime = int(ftime[0].getContent())
+        if ctype:
+            ctype = str(ctype[0].getContent())
         if fpriv:
             fpriv = int(fpriv[0].getContent())
         if ftags:
@@ -722,9 +765,9 @@ class Component(pyxmpp.jabberd.Component):
         if self.isFeedNameRegistered(fname) or self.isFeedUrlRegistered(furl):
             self.stream.send(iq.make_error_response("conflict"))
             return
-        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime,fpriv,ftags,))
+        thread.start_new_thread(self.regThread,(iq.make_result_response(),iq.make_error_response("not-acceptable"),fname,furl,fdesc,fsubs,ftime,fpriv,ftags,ctype,))
 
-    def regThread(self, iqres, iqerr, fname, furl, fdesc, fsubs, ftime, fpriv, ftags):
+    def regThread(self, iqres, iqerr, fname, furl, fdesc, fsubs, ftime, fpriv, ftags, ctype):
         try:
             d=feedparser.parse(furl)
             bozo=d["bozo"]
@@ -740,8 +783,14 @@ class Component(pyxmpp.jabberd.Component):
         ftime=ftime*60
         if ftime<60:
             ftime=60
+        if ctype == 'By link + title':
+            ctype = 1
+        elif ctype == 'By link + title + content':
+            ctype = 2
+        else:
+            ctype = 0
         registrar = iqres.get_to().bare()
-        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime, fpriv, registrar, ftags))
+        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags, checktype) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime, fpriv, registrar, ftags, ctype))
         self.last_upd[fname] = 0
         self.dbfeeds = self.dbCurRT.dbfeeds()
         self.dbCurRT.execute("COMMIT")
@@ -961,12 +1010,12 @@ class Component(pyxmpp.jabberd.Component):
         if not self.updating:
             for feed in self.dbfeeds:
                 if feed[0] not in self.adaptime:
-                    checkfeeds.append((feed[0], feed[1], feed[2],)) # update all feeds at startup time
+                    checkfeeds.append((feed[0], feed[1], feed[2], feed[9],)) # update all feeds at startup time
                     self.adaptime[feed[0]] = feed[2] # set update times to its defined values. This will be redefined after checkrss() (or not)
                 try:
                     if (nowTime-int(self.last_upd[feed[0]])) > self.adaptime[feed[0]]:
                         self.last_upd[feed[0]] = nowTime
-                        checkfeeds.append((feed[0], feed[1], feed[2],))
+                        checkfeeds.append((feed[0], feed[1], feed[2], feed[9],))
                 except:
                     self.last_upd[feed[0]]=nowTime
             if checkfeeds:
@@ -1018,13 +1067,20 @@ class Component(pyxmpp.jabberd.Component):
                     flink = i["link"][:254]
                 if 'title' in i:
                     ftitle = self.strip_utf8mb4(i["title"][:254]) # removing utf8mb4 for python-mysqldb
-                if not self.isSent(feedname, flink+ftitle):
+                if 'author' in i:
+                    fauthor = self.strip_utf8mb4(i["author"][:126])
+                if 'summary' in i:
+                    fsum = self.strip_utf8mb4(i["summary"][:8190])
+
+                if feed[3] == 1:
+                    checkdata = flink+ftitle
+                elif feed[3] == 2:
+                    checkdata = flink+ftitle+fsum
+                else:
+                    checkdata = flink
+                if not self.isSent(feedname, checkdata, feed[3]):
                     self.sendItem(feedname, i, jids)
                     self.times[feedname].append(time.time())
-                    if 'author' in i:
-                        fauthor = self.strip_utf8mb4(i["author"][:126])
-                    if 'summary' in i:
-                        fsum = self.strip_utf8mb4(i["summary"][:8190])
                     self.dbCurUT.execute("INSERT INTO sent (feedname, title, author, link, content) VALUES (%s, %s, %s, %s, %s)", (feedname, ftitle, fauthor, flink, fsum))
                     time.sleep(0.2)
                 else:
@@ -1055,9 +1111,14 @@ class Component(pyxmpp.jabberd.Component):
         print("End of checkrss")
         self.updating = 0
 
-    def isSent(self, feedname, uniq):
-        self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title) = %s", (feedname, uniq))
-        a=self.dbCurUT.fetchone()
+    def isSent(self, feedname, checkdata, checktype):
+        if checktype == 1:
+            self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title) = %s", (feedname, checkdata))
+        elif checktype == 2:
+            self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title, content) = %s", (feedname, checkdata))
+        else:
+            self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND link = %s", (feedname, checkdata))
+        a = self.dbCurUT.fetchone()
         if a[0]>0:
             return True
         return False
