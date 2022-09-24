@@ -272,4 +272,4 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 
 ## v 1.14.2
 
-* Добавлен вывод версии Python в качестве информации об ОС в iq:last-запрос.
+* Добавлен вывод версии Python в качестве информации об ОС в iq:version-запрос.
