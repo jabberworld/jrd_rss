@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14"
+programmVersion="1.14.1"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -510,7 +510,7 @@ class Component(pyxmpp.jabberd.Component):
 
         elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and 10 > int(bodyp[0]) > 0:
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
-            self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL ORDER BY income DESC LIMIT %s", (feedname, int(bodyp[0])))
+            self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL GROUP BY link ORDER BY income DESC LIMIT %s", (feedname, int(bodyp[0])))
             news = self.dbCurTT.fetchall()
             self.dbCurTT.execute("SELECT jid, posfilter, negfilter, short FROM subscribers WHERE feedname = %s AND jid = %s", (feedname, fromjid))
             jids = self.dbCurTT.fetchall()
