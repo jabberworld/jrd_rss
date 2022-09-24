@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.1"
+programmVersion="1.14.2"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -995,6 +995,7 @@ class Component(pyxmpp.jabberd.Component):
         q=iq.new_query("jabber:iq:version")
         q.newTextChild(q.ns(), "name", "Jabber RSS Transport")
         q.newTextChild(q.ns(), "version", programmVersion)
+        q.newTextChild(q.ns(), "os", "Python "+sys.version.split()[0]+" + PyXMPP")
         self.stream.send(iq)
         return 1
 
