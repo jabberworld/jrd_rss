@@ -1,19 +1,20 @@
 <config>
-	<dbhost>127.0.0.1</dbhost>
-	<dbuser>dbuser</dbuser>
-	<dbpass>superpassword</dbpass>
-	<dbname>jrdrss</dbname>
+	<dbhost>127.0.0.1</dbhost> <!-- MySQL host address -->
+	<dbuser>dbuser</dbuser> <!-- MySQL database user -->
+	<dbpass>superpassword</dbpass> <!-- MySQL database password -->
+	<dbname>jrdrss</dbname> <!-- MySQL database name -->
 
-	<name>rss.linuxoid.in</name>
-	<host>127.0.0.1</host>
-	<port>5555</port>
-	<password>superpassword</password>
+	<name>rss.linuxoid.in</name> <!-- Transport name -->
+	<host>127.0.0.1</host> <!-- Jabber server address -->
+	<port>5555</port> <!-- Jabber server port -->
+	<password>superpassword</password> <!-- Transport password -->
 
-	<adaptive>1</adaptive>
-	<regallow>1</regallow>
-	<iconlogo>1</iconlogo>
-	<sentsize>3</sentsize>
+	<adaptive>1</adaptive> <!-- Adaptive mode -->
+	<regallow>1</regallow> <!-- Allow feed registration for non-admins -->
+	<iconlogo>1</iconlogo> <!-- Use favicon.ico from site as vCard photo -->
+	<sentsize>3</sentsize> <!-- Message archive size, days -->
 
+    <!-- JIDs of admins -->
 	<admin>username@linuxoid.in</admin>
 	<admin>username1@linuxoid.in</admin>
 	<admin>username2@linuxoid.in</admin>
