@@ -208,7 +208,7 @@ class Component(pyxmpp.jabberd.Component):
                     tagmark = body.rfind("SETTAGS:")
                     if tagmark < 0:
                         tagmark = None
-                        ftags = u''
+                        ftags = ''
                     else:
                         ftags = body[tagmark+8:]
                         ftags = re.sub(' *, *', ',', ftags.strip())
@@ -508,7 +508,7 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed or you are not owner")
 
-        elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and 10 > int(bodyp[0]) > 0:
+        elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and 21 > int(bodyp[0]) > 0:
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
             self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL GROUP BY link ORDER BY income DESC LIMIT %s", (feedname, int(bodyp[0])))
             news = self.dbCurTT.fetchall()
@@ -796,7 +796,7 @@ class Component(pyxmpp.jabberd.Component):
         self.dbCurRT.execute("COMMIT")
         self.stream.send(iqres)
         if fsubs:
-            pres=Presence(stanza_type="subscribe", from_jid=JID(unicode(fname, 'utf-8')+u"@"+self.name), to_jid=iqres.get_to().bare())
+            pres = Presence(stanza_type="subscribe", from_jid=JID(unicode(fname, 'utf-8') + '@' + self.name), to_jid=iqres.get_to().bare())
             self.stream.send(pres)
 
     def getlogo(self, url):
@@ -869,14 +869,14 @@ class Component(pyxmpp.jabberd.Component):
                     url = feedstr[1]
                     bday = feedstr[3]
                     if self.adaptive and nick in self.adaptime and self.adaptime[nick] != feedstr[2]:
-                        real = "(adaptive: "+str(int(self.adaptime[nick]/60))+u"mins)"
+                        real = "(adaptive: " + str(int(self.adaptime[nick]/60)) + "mins)"
                     else:
                         real = ''
                     tags = ''
                     if feedstr[8]:
                         for tag in feedstr[8].replace(',', ', ').split():
                             tags += tag.capitalize().replace(',', ', ')
-                    description = feedstr[4]+u'\nTags: '+tags+u'\nFeed update interval: '+str(feedstr[2]/60)+u' mins '+real+u'\nFeed subscribers: '+str(feedstr[5])
+                    description = feedstr[4] + '\nTags: ' + tags + '\nFeed update interval: '+str(feedstr[2]/60) + ' mins ' + real + '\nFeed subscribers: '+str(feedstr[5])
 # Tried to use favicon.ico from site as EXTVAL in PHOTO, but no luck - no support for EXTVAL in clients (tried Psi, Gajim, Conversations)
 #                    favicon=urlparse.urlparse(url)[0]+"://"+urlparse.urlparse(url)[1]+"/favicon.ico"
 
@@ -1125,7 +1125,7 @@ class Component(pyxmpp.jabberd.Component):
         return False
 
     def botstatus(self, feedname, jid):
-        p=Presence(from_jid=feedname+u"@"+self.name+u"/rss",
+        p=Presence(from_jid=feedname + '@' + self.name + "/rss",
             to_jid=JID(jid[0]),
             show = self.get_show(feedname),
             status = self.get_status(feedname))
@@ -1133,7 +1133,7 @@ class Component(pyxmpp.jabberd.Component):
 
     def sendItem(self, feedname, i, jids):
         if 'summary' not in i or i['summary'] == None:
-            summary = u"\n\nNo description"
+            summary = "\n\nNo description"
         else:
             summary = i["summary"].encode('utf-8')
             summary = re.sub('<br ??/??>','\n',summary)
@@ -1143,7 +1143,9 @@ class Component(pyxmpp.jabberd.Component):
             summary = re.sub('\n?</blockquote>', '»\n', summary)
             summary = re.sub('<[^>]*>','',summary)
             summary = re.sub('\n»', '»', summary)
+            summary = re.sub('(?<!^)(?<!\n\n)>', '\n\n>', summary)
             summary = re.sub('»\n(?!\n)', '»\n\n', summary)
+            summary = re.sub('^\n+', '', summary)
             summary = summary.replace("&hellip;","…")
             summary = summary.replace('&quot;','"')
             summary = summary.replace("&nbsp;"," ")
@@ -1177,23 +1179,23 @@ class Component(pyxmpp.jabberd.Component):
                     continue
 
             if ii[3] == 1:
-                summary = ''
+                body = ''
             elif ii[3] == 2:
-                summary = u'\n\n'+re.split(r'\.|!|\?', summary)[0]+u'\n\n'
+                body = '\n\n' + re.split(r'\.|!|\?', summary)[0] + '\n\n'
             elif ii[3] == 3:
-                summary = u'\n\n'+re.split(r'\n', summary)[0]+u'\n\n'
+                body = '\n\n' + re.split(r'\n', summary)[0] + '\n\n'
             elif ii[3] != 0 and len(summary) > ii[3]:
-                summary = u'\n\n'+summary[:ii[3]]+u'...\n\n'
+                body = '\n\n' + summary[:ii[3]] + '...\n\n'
             else:
-                summary = u'\n\n'+summary+u'\n\n'
+                body = '\n\n' + summary + '\n\n'
 
             author = title = ''
             if 'author' in i and i['author'] != None:
-                author = u" (by "+i["author"]+u")"
+                author = ' (by '+i["author"] + ')'
             if 'title' in i and i['title'] != None:
-                title = '*'+i['title']+'*'
+                title = '*' + i['title'] + '*'
 # Conversations doesnt support subject for messages, so all data moved to body:
-            self.sendmsg(feedname+u"@"+self.name, JID(ii[0]), title+u'\nLink: '+i["link"]+author+summary)
+            self.sendmsg(feedname + '@' + self.name, JID(ii[0]), title + '\nLink: ' + i["link"] + author + body)
 
 #            m=Message(to_jid=JID(ii[0]),
 #                from_jid=feedname+u"@"+self.name,
@@ -1267,7 +1269,10 @@ class Component(pyxmpp.jabberd.Component):
             tst = None
         else:
             tst = self.last_upd[feedname]
-        status = desc+u'\nNew messages in last 1h: '+unicode(str(self.lasthournew[feedname]), 'utf-8')+u' / 24h: '+unicode(str(self.new[feedname]), 'utf-8')+u'\nLast updated: '+unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(tst)), 'utf-8')+u'\nNext in: '+unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(nextin)), 'utf-8')+u'\nUsers: '+unicode(str(users), 'utf-8')
+        status = desc + '\nNew messages in last 1h: ' + unicode(str(self.lasthournew[feedname]), 'utf-8') + ' / 24h: ' + unicode(str(self.new[feedname]), 'utf-8')
+        status += '\nLast updated: ' + unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(tst)), 'utf-8')
+        status += '\nNext in: ' + unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(nextin)), 'utf-8')
+        status += '\nUsers: ' + unicode(str(users), 'utf-8')
         return status
 
     def presence_control(self, stanza):
