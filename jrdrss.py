@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.2"
+programmVersion="1.14.3"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
