@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.3"
+programmVersion="1.14.4"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -213,7 +213,7 @@ class Component(pyxmpp.jabberd.Component):
                         ftags = body[tagmark+8:]
                         ftags = re.sub(' *, *', ',', ftags.strip())
                     fdesc = body[body.rfind(bodyp[4], 0, tagmark):tagmark].strip()
-                    self.dbCurTT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (bodyp[1], bodyp[2], fdesc, 0, fint, 0, fromjid, ftags))
+                    self.dbCurTT.execute("INSERT INTO feeds (feedname, url, description, timeout, private, registrar, tags) VALUES (%s, %s, %s, %s, %s, %s, %s)", (bodyp[1], bodyp[2], fdesc, fint, 0, fromjid, ftags))
                     self.dbCurTT.execute("COMMIT")
                     self.dbfeeds = self.dbCurTT.dbfeeds()
                     self.sendmsg(tojid, fromjid, "Added new feed: "+bodyp[1]+" ("+fdesc+")")
@@ -777,9 +777,6 @@ class Component(pyxmpp.jabberd.Component):
         if bozo==1:
             self.stream.send(iqerr)
             return
-        vsubs=0
-        if fsubs:
-            vsubs=1
         ftime=ftime*60
         if ftime<60:
             ftime=60
@@ -790,7 +787,7 @@ class Component(pyxmpp.jabberd.Component):
         else:
             ctype = 0
         registrar = iqres.get_to().bare()
-        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, subscribers, timeout, private, registrar, tags, checktype) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, vsubs, ftime, fpriv, registrar, ftags, ctype))
+        self.dbCurRT.execute("INSERT INTO feeds (feedname, url, description, timeout, private, registrar, tags, checktype) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (fname, furl, fdesc, ftime, fpriv, registrar, ftags, ctype))
         self.last_upd[fname] = 0
         self.dbfeeds = self.dbCurRT.dbfeeds()
         self.dbCurRT.execute("COMMIT")
@@ -1288,7 +1285,7 @@ class Component(pyxmpp.jabberd.Component):
         if stanza.get_type()=="subscribe":
             if self.isFeedNameRegistered(feedname) and a[0]==0:
                 self.dbCurPT.execute("INSERT INTO subscribers (jid, feedname) VALUES (%s, %s)", (fromjid, feedname))
-                self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers+1 WHERE feedname = %s", (feedname,))
+                self.dbCurPT.execute("UPDATE feeds SET subscribers = (SELECT count(jid) FROM subscribers WHERE feedname = %s) WHERE feedname = %s", (feedname, feedname,))
                 self.dbCurPT.execute("COMMIT")
                 self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="subscribe",
@@ -1310,7 +1307,7 @@ class Component(pyxmpp.jabberd.Component):
         if stanza.get_type()=="unsubscribe" or stanza.get_type()=="unsubscribed":
             if self.isFeedNameRegistered(feedname) and a[0]>0:
                 self.dbCurPT.execute("DELETE FROM subscribers WHERE jid = %s AND feedname = %s", (fromjid, feedname))
-                self.dbCurPT.execute("UPDATE feeds SET subscribers=subscribers-1 WHERE feedname = %s", (feedname,))
+                self.dbCurPT.execute("UPDATE feeds SET subscribers = (SELECT count(jid) FROM subscribers WHERE feedname = %s) WHERE feedname = %s", (feedname, feedname,))
                 self.dbCurPT.execute("COMMIT")
                 self.dbfeeds = self.dbCurPT.dbfeeds()
                 p=Presence(stanza_type="unsubscribe",
