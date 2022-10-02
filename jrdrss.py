@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.4"
+programmVersion="1.14.5"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -160,6 +160,7 @@ class Component(pyxmpp.jabberd.Component):
         pyxmpp.jabberd.Component.authenticated(self)
         self.disco_info.add_feature("http://jabber.org/protocol/disco#info")
         self.disco_info.add_feature("http://jabber.org/protocol/disco#items")
+        self.disco_info.add_feature("http://jabber.org/protocol/stats") # XEP-0039
         self.disco_info.add_feature("jabber:iq:version")
         self.disco_info.add_feature("jabber:iq:search")
         self.disco_info.add_feature("jabber:iq:register")
@@ -176,6 +177,7 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_iq_get_handler("time","urn:xmpp:time",self.get_time)
         self.stream.set_iq_get_handler("query","jabber:iq:register",self.get_register)
         self.stream.set_iq_set_handler("query","jabber:iq:register",self.set_register)
+        self.stream.set_iq_get_handler("query", "http://jabber.org/protocol/stats", self.get_stats)
         self.stream.set_presence_handler("available",self.presence)
         self.stream.set_presence_handler("unavailable",self.presence)
         self.stream.set_presence_handler("subscribe",self.presence_control)
@@ -183,6 +185,48 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.set_presence_handler("unsubscribe",self.presence_control)
         self.stream.set_presence_handler("unsubscribed",self.presence_control)
         self.stream.set_message_handler("normal", self.message)
+
+    def get_stats(self, iq):
+# It's incorrect implementation of XEP-0039, it should be in 2 steps (like search)
+        iq = iq.make_result_response()
+        q = iq.new_query("http://jabber.org/protocol/stats")
+
+        upt = q.newChild(None, "stat", None)
+        upt.setProp("name", 'time/uptime')
+        upt.setProp("units", 'seconds')
+        upt.setProp("value", str(int(time.time()) - self.start_time))
+
+        hourly = daily = 0
+        for feed in self.lasthournew:
+            hourly += self.lasthournew[feed]
+        for feed in self.new:
+            daily += self.new[feed]
+
+        msgs24 = q.newChild(None, "stat", None)
+        msgs24.setProp("name", 'news/hourly')
+        msgs24.setProp("units", 'news')
+        msgs24.setProp("value", str(hourly))
+
+        msgs24 = q.newChild(None, "stat", None)
+        msgs24.setProp("name", 'news/daily')
+        msgs24.setProp("units", 'news')
+        msgs24.setProp("value", str(daily))
+
+        a = 0
+        for fa in (feed[5] != 0 for feed in self.dbfeeds):
+            a += fa
+        factive = q.newChild(None, "stat", None)
+        factive.setProp("name", 'feeds/active')
+        factive.setProp("units", 'feeds')
+        factive.setProp("value", str(a))
+
+        ftotal = q.newChild(None, "stat", None)
+        ftotal.setProp("name", 'feeds/total')
+        ftotal.setProp("units", 'feeds')
+        ftotal.setProp("value", str(len(self.dbfeeds)))
+
+        self.stream.send(iq)
+        return 1
 
     def message(self, iq):
         body = iq.get_body()
@@ -1162,6 +1206,7 @@ class Component(pyxmpp.jabberd.Component):
             summary = summary.replace("&rsquo;","’")
             summary = summary.replace("&lsquo;","‘")
             summary = summary.replace("&#8217;","'")
+            summary = summary.replace("&#039;","'")
             summary = summary.replace("&#8222;","„")
             summary = summary.replace("&#8220;","“")
             summary = summary.replace("&amp;","&")
