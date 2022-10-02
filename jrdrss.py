@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.5"
+programmVersion="1.14.6"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -202,10 +202,10 @@ class Component(pyxmpp.jabberd.Component):
         for feed in self.new:
             daily += self.new[feed]
 
-        msgs24 = q.newChild(None, "stat", None)
-        msgs24.setProp("name", 'news/hourly')
-        msgs24.setProp("units", 'news')
-        msgs24.setProp("value", str(hourly))
+        msgs = q.newChild(None, "stat", None)
+        msgs.setProp("name", 'news/hourly')
+        msgs.setProp("units", 'news')
+        msgs.setProp("value", str(hourly))
 
         msgs24 = q.newChild(None, "stat", None)
         msgs24.setProp("name", 'news/daily')
