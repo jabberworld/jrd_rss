@@ -293,7 +293,7 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* searchintag or ?!# TAG SOME STRING - search by title, author or content in TAG\n"
             msg += "* searchtitle or ?!* SOME STRING - search by title in all feeds\n"
             msg += "* searchall or ?! SOME STRING - search by title, author or content in all feeds\n\n"
-            msg += "* 1..9 - fetch last N news for this feed\n\n"
+            msg += "* 1..20 - fetch last N news for this feed\n\n"
             if fromjid in self.admins:
                 msg += "* updateall - update all feeds\n"
                 msg += "* update [NAME] - update feed NAME (or this feed)\n\n"
