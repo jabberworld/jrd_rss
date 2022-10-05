@@ -1174,7 +1174,7 @@ class Component(pyxmpp.jabberd.Component):
 
     def sendItem(self, feedname, i, jids):
         if 'summary' not in i or i['summary'] == None:
-            summary = "\n\nNo description"
+            summary = "No description"
         else:
             summary = i["summary"].encode('utf-8')
             summary = re.sub('<br ??/??>','\n',summary)
@@ -1224,7 +1224,7 @@ class Component(pyxmpp.jabberd.Component):
                     print("Matched negative")
                     continue
 
-            if ii[3] == 1:
+            if ii[3] == 1 or summary == '':
                 body = ''
             elif ii[3] == 2:
                 body = '\n\n' + re.split(r'\.|!|\?', summary)[0] + '\n\n'
