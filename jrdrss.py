@@ -1187,6 +1187,7 @@ class Component(pyxmpp.jabberd.Component):
             summary = re.sub('(?<!^)(?<!\n\n)>', '\n\n>', summary)
             summary = re.sub('»\n(?!\n)', '»\n\n', summary)
             summary = re.sub('^\n+', '', summary)
+            summary = summary.replace("&#8203;", '')
             summary = summary.replace("&hellip;","…")
             summary = summary.replace("&#8230;","…")
             summary = summary.replace('&quot;','"')
@@ -1317,8 +1318,8 @@ class Component(pyxmpp.jabberd.Component):
             tst = self.last_upd[feedname]
         status = desc + '\nNew messages in last 1h: ' + unicode(str(self.lasthournew[feedname]), 'utf-8') + ' / 24h: ' + unicode(str(self.new[feedname]), 'utf-8')
         status += '\nLast updated: ' + unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(tst)), 'utf-8')
-        status += '\nNext in: ' + unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(nextin)), 'utf-8')
-        status += '\nUsers: ' + unicode(str(users), 'utf-8')
+        status += ' UTC\nNext in: ' + unicode(time.strftime("%d %b %Y %H:%M:%S", time.localtime(nextin)), 'utf-8')
+        status += ' UTC\nUsers: ' + unicode(str(users), 'utf-8')
         return status
 
     def presence_control(self, stanza):
