@@ -599,10 +599,9 @@ class Component(pyxmpp.jabberd.Component):
                 pass
             msg = ''
             for val in self.dbCurTT.fetchall():
-#                msg += val[0] + ': ' + str(val[1]) + ' news\n'
-                msg += str("%03d" % (val[1],)) + ' | ' + val[0] + '\n'
+                msg += str("%04d" % (val[1],)) + ' | ' + val[0] + '\n'
             if msg:
-                self.sendmsg(tojid, fromjid, "Top 10 feeds:\n" + msg)
+                self.sendmsg(tojid, fromjid, "Top 10 feeds:\nNews | Feedname\n" + msg)
 
     def printsearch(self, data, tojid, fromjid, inall = None, feedname = None):
         if len(data) > 0:
