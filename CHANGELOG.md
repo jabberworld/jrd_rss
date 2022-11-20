@@ -289,3 +289,7 @@ ALTER TABLE sent MODIFY COLUMN received BOOLEAN DEFAULT FALSE ;
 ## v 1.14.6
 
 * Bugfix for XEP-0039
+
+## v 1.14.7
+
+* Добавлена команда top - вывод статистики по лентам за сегодня, последний день, неделю или месяц.

@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.6"
+programmVersion="1.14.7"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -338,6 +338,7 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* searchtitle or ?!* SOME STRING - search by title in all feeds\n"
             msg += "* searchall or ?! SOME STRING - search by title, author or content in all feeds\n\n"
             msg += "* 1..20 - fetch last N news for this feed\n\n"
+            msg += "* top [today | day | week | month] - show statistics for period - default for this day. You can use shorts d, w, m for periods\n\n"
             if fromjid in self.admins:
                 msg += "* updateall - update all feeds\n"
                 msg += "* update [NAME] - update feed NAME (or this feed)\n\n"
@@ -582,6 +583,26 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
             self.dbCurTT.execute("SELECT title, author, link, DATE_FORMAT(income, '%%Y-%%m-%%d %%H:%%i'), feedname FROM sent WHERE title LIKE %s AND link IS NOT NULL ORDER BY income ASC LIMIT 10", (searchstr, ))
             self.printsearch(self.dbCurTT.fetchall(), tojid, fromjid, True, None)
+
+        elif bodyp[0] == 'top':
+            self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            if (len(bodyp) == 1 or bodyp[1] == 'today'):
+                self.dbCurTT.execute("SELECT feedname, count(feedname) FROM sent WHERE income >= CURDATE() GROUP BY feedname ORDER BY count(feedname) DESC LIMIT 10")
+            elif (bodyp[1] == 'day' or bodyp[1] == 'd'):
+                self.dbCurTT.execute("SELECT feedname, count(feedname) FROM sent WHERE income >= NOW() - INTERVAL 1 DAY GROUP BY feedname ORDER BY count(feedname) DESC LIMIT 10")
+            elif (bodyp[1] == 'week' or bodyp[1] == 'w'):
+                self.dbCurTT.execute("SELECT feedname, count(feedname) FROM sent WHERE income >= NOW() - INTERVAL 1 WEEK GROUP BY feedname ORDER BY count(feedname) DESC LIMIT 10")
+            elif (bodyp[1] == 'month' or bodyp[1] == 'm'):
+                self.dbCurTT.execute("SELECT feedname, count(feedname) FROM sent WHERE income >= NOW() - INTERVAL 1 MONTH GROUP BY feedname ORDER BY count(feedname) DESC LIMIT 10")
+            else:
+                self.sendmsg(tojid, fromjid, "Incorrect period!")
+                pass
+            msg = ''
+            for val in self.dbCurTT.fetchall():
+#                msg += val[0] + ': ' + str(val[1]) + ' news\n'
+                msg += str("%03d" % (val[1],)) + ' | ' + val[0] + '\n'
+            if msg:
+                self.sendmsg(tojid, fromjid, "Top 10 feeds:\n" + msg)
 
     def printsearch(self, data, tojid, fromjid, inall = None, feedname = None):
         if len(data) > 0:
