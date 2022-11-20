@@ -599,7 +599,7 @@ class Component(pyxmpp.jabberd.Component):
                 pass
             msg = ''
             for val in self.dbCurTT.fetchall():
-                msg += str("%04d" % (val[1],)) + ' | ' + val[0] + '\n'
+                msg += str("%04d" % (val[1],)) + ' | ' + val[0] + '@' + self.name + '\n'
             if msg:
                 self.sendmsg(tojid, fromjid, "Top 10 feeds:\nNews | Feedname\n" + msg)
 
