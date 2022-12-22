@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.7"
+programmVersion="1.14.8"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -626,7 +626,7 @@ class Component(pyxmpp.jabberd.Component):
             self.sendmsg(tojid, fromjid, 'Nothing found')
 
     def sendmsg(self, fromjid, tojid, msg):
-        m = Message(to_jid = tojid, from_jid = fromjid, stanza_type='chat', body = msg)
+        m = Message(to_jid = tojid, from_jid = JID(str(fromjid) + "/rss"), stanza_type='chat', body = msg)
         self.stream.send(m)
 
     def mknode(self, disco_items, name, desc):
