@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.14.8"
+programmVersion="1.15"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -318,25 +318,35 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* setupd or =@ (NAME or ':') SECS - set new update interval for feed NAME (or : for this feed) in SECS\n"
             msg += "* setuniq or =() (NAME or ':') (link | title | content) - set news uniqueness check type for feed NAME (or : for this feed)\n"
             msg += "* setdesc or =: (NAME or ':') New feed description - set new feed description for feed NAME (or : for this feed)\n\n"
+
             msg += "* showtags or ?# [NAME] - show tags for feed NAME (or this feed)\n"
             msg += "* showupd or ?@ [NAME] - show update interval for feed NAME (or this feed)\n"
             msg += "* showdesc or ?: [NAME] - show description for feed NAME (or this feed)\n"
             msg += "* showuniq or ?() [NAME] - show news uniqueness check type for feed NAME (or this feed)\n"
             msg += "* showadap or ?% [NAME] - show real update time for feed NAME (or this feed)\n"
+
             msg += "* showmyprivate or ?*** - show my private feeds\n"
             msg += "* showmyfeeds or ?~ - show all feeds where i am registrar\n\n"
+
             msg += "* setposfilter or =+ (NAME or ':') [EXP] - deliver news for feed NAME (or : for this feed) only with subject matched expression EXP\n"
             msg += "* setnegfilter or =- (NAME or ':') [EXP] - block news for feed NAME (or : for this feed) with subject matched expression EXP\n"
             msg += "* showfilter or ?+- [NAME] - show filters for feed NAME (or this feed)\n\n"
+
             msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed).\n"
             msg += "  * Use setshort NAME 1 for 'Title only' mode.\n  * Use setshort NAME 2 for '1st sentence mode'.\n  * Use setshort NAME 3 for '1st paragraph' mode.\n"
             msg += "* showshort or ?... [NAME] - show maximum message size for feed NAME (or this feed)\n\n"
+
             msg += "* hide or *** [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
+
+            msg += "* mute or ~~~ [NAME] - do not receive news from feed NAME (or this feed)\n"
+            msg += "* unmute or !!! [NAME] - cancel mute command for feed NAME (or this feed)\n\n"
+
             msg += "* search or ? SOME STRING - search by title, author or content in this feed\n"
             msg += "* searchintag or ?!# TAG SOME STRING - search by title, author or content in TAG\n"
             msg += "* searchtitle or ?!* SOME STRING - search by title in all feeds\n"
             msg += "* searchall or ?! SOME STRING - search by title, author or content in all feeds\n\n"
+
             msg += "* 1..20 - fetch last N news for this feed\n\n"
             msg += "* top [today | day | week | month] - show statistics for period - default for this day. You can use shorts d, w, m for periods\n\n"
             if fromjid in self.admins:
@@ -553,6 +563,19 @@ class Component(pyxmpp.jabberd.Component):
             else:
                 self.sendmsg(tojid, fromjid, "Can't find this feed or you are not owner")
 
+        elif (bodyp[0] == 'mute' or bodyp[0] == '~~~') and len(bodyp) < 3:
+            if len(bodyp) == 2:
+                feedname = bodyp[1]
+            self.dbCurTT.execute("UPDATE subscribers SET mute = TRUE WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
+            self.sendmsg(tojid, fromjid, "Feed "+feedname+" muted")
+            self.dbCurTT.execute("COMMIT")
+        elif (bodyp[0] == 'unmute' or bodyp[0] == '!!!') and len(bodyp) < 3:
+            if len(bodyp) == 2:
+                feedname = bodyp[1]
+            self.dbCurTT.execute("UPDATE subscribers SET mute = FALSE WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
+            self.sendmsg(tojid, fromjid, "Feed "+feedname+" unmuted")
+            self.dbCurTT.execute("COMMIT")
+
         elif len(bodyp) == 1 and feedname != None and bodyp[0].isdigit() and 21 > int(bodyp[0]) > 0:
             self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
             self.dbCurTT.execute("SELECT title, author, link, content FROM sent WHERE feedname = %s AND link IS NOT NULL GROUP BY link ORDER BY income DESC LIMIT %s", (feedname, int(bodyp[0])))
@@ -626,7 +649,8 @@ class Component(pyxmpp.jabberd.Component):
             self.sendmsg(tojid, fromjid, 'Nothing found')
 
     def sendmsg(self, fromjid, tojid, msg):
-        m = Message(to_jid = tojid, from_jid = JID(str(fromjid) + "/rss"), stanza_type='chat', body = msg)
+        fromjid = unicode(fromjid) + unicode('/rss')
+        m = Message(to_jid = tojid, from_jid = JID(fromjid), stanza_type='chat', body = msg)
         self.stream.send(m)
 
     def mknode(self, disco_items, name, desc):
@@ -1103,8 +1127,8 @@ class Component(pyxmpp.jabberd.Component):
             self.lasthournew[feedname] = 0
 
             self.dbCurUT.execute("COMMIT")
-            self.dbCurUT.execute("SELECT jid, posfilter, negfilter, short FROM subscribers WHERE feedname = %s", (feedname,))
-            jids=self.dbCurUT.fetchall()
+            self.dbCurUT.execute("SELECT jid, posfilter, negfilter, short, mute FROM subscribers WHERE feedname = %s", (feedname,))
+            jids = self.dbCurUT.fetchall()
 
             if len(jids)==0:
                 continue
@@ -1236,13 +1260,17 @@ class Component(pyxmpp.jabberd.Component):
             summary = unicode(summary, 'utf-8')
 
         for ii in jids:
-            if ii[1]:
-                if not re.search(ii[1], i['title']):
-                    print("Not matched positive")
-                    continue
-            if ii[2]:
-                if re.search(ii[2], i['title']):
-                    print("Matched negative")
+            if len(ii) == 5: # array has 5 indexes only when called from main cycle. No sense to use filters and mute flag with manual fetching
+                if ii[1]:
+                    if not re.search(ii[1], i['title']):
+                        print("Not matched positive")
+                        continue
+                if ii[2]:
+                    if re.search(ii[2], i['title']):
+                        print("Matched negative")
+                        continue
+                if ii[4]:
+                    print("Feed muted")
                     continue
 
             if ii[3] == 1 or summary == '':
