@@ -328,19 +328,19 @@ class Component(pyxmpp.jabberd.Component):
             msg += "* showmyprivate or ?*** - show my private feeds\n"
             msg += "* showmyfeeds or ?~ - show all feeds where i am registrar\n\n"
 
-            msg += "* setposfilter or =+ (NAME or ':') [EXP] - deliver news for feed NAME (or : for this feed) only with subject matched expression EXP\n"
-            msg += "* setnegfilter or =- (NAME or ':') [EXP] - block news for feed NAME (or : for this feed) with subject matched expression EXP\n"
+            msg += "* setposfilter or =+ [EXP] - deliver news for feed only with subject matched expression EXP\n"
+            msg += "* setnegfilter or =- [EXP] - block news for feed with subject matched expression EXP\n"
             msg += "* showfilter or ?+- [NAME] - show filters for feed NAME (or this feed)\n\n"
 
-            msg += "* setshort or =... (NAME or ':') [SYMBOLS] - limit maximum message size in feed NAME (or : for this feed).\n"
-            msg += "  * Use setshort NAME 1 for 'Title only' mode.\n  * Use setshort NAME 2 for '1st sentence mode'.\n  * Use setshort NAME 3 for '1st paragraph' mode.\n"
+            msg += "* setshort or =... SYMBOLS - limit maximum message size in feed body.\n"
+            msg += "  * Use setshort 1 for 'Title only' mode.\n  * Use setshort 2 for '1st sentence mode'.\n  * Use setshort 3 for '1st paragraph' mode.\n"
             msg += "* showshort or ?... [NAME] - show maximum message size for feed NAME (or this feed)\n\n"
 
             msg += "* hide or *** [NAME] - make feed NAME (or this feed) private\n"
             msg += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
 
             msg += "* mute or ~~~ [NAME] - do not receive news from feed NAME (or this feed)\n"
-            msg += "* unmute or !!! [NAME] - cancel mute command for feed NAME (or this feed)\n\n"
+            msg += "* unmute or @@@ [NAME] - cancel mute command for feed NAME (or this feed)\n\n"
 
             msg += "* search or ? SOME STRING - search by title, author or content in this feed\n"
             msg += "* searchintag or ?!# TAG SOME STRING - search by title, author or content in TAG\n"
@@ -464,11 +464,9 @@ class Component(pyxmpp.jabberd.Component):
                     myuniq = 'link'
                 self.sendmsg(tojid, fromjid, 'News uniqueness check type: '+myuniq)
 
-        elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter' or bodyp[0] == '=+' or bodyp[0] == '=-') and len(bodyp) > 1:
-            if bodyp[1] != ':':
-                feedname = bodyp[1]
-            if len(bodyp) > 2:
-                myfilter = body[body.rfind(bodyp[2]):].strip()
+        elif (bodyp[0] == 'setposfilter' or bodyp[0] == 'setnegfilter' or bodyp[0] == '=+' or bodyp[0] == '=-'):
+            if len(bodyp) > 1:
+                myfilter = body[body.rfind(bodyp[1]):].strip()
                 if len(myfilter) < 255:
                     print("New filter: "+myfilter)
                     if (bodyp[0] == 'setposfilter' or bodyp[0] == '=+'):
@@ -505,25 +503,19 @@ class Component(pyxmpp.jabberd.Component):
                 negfilter = ''
             self.sendmsg(tojid, fromjid, "Filters for "+feedname+":\nPositive (include): "+posfilter+"\nNegative (exclude): "+negfilter)
 
-        elif (bodyp[0] == 'setshort' or bodyp[0] == '=...') and len(bodyp) > 1:
-            if bodyp[1] != ':':
-                feedname = bodyp[1]
-            if len(bodyp) == 3 and bodyp[2].isdigit():
-                self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[2], feedname, fromjid,))
-                msg = str(bodyp[2])
-                if msg == '0':
-                    msg = 'unlimited'
-                elif msg == '1':
-                    msg = 'title only'
-                elif msg == '2':
-                    msg = '1st sentence'
-                elif msg == '3':
-                    msg = '1st paragraph'
-                self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to "+msg)
-            elif len(bodyp) == 2:
-                self.dbCurTT.execute("UPDATE subscribers SET short = 0 WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
-                self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" set to unlimited")
+        elif (bodyp[0] == 'setshort' or bodyp[0] == '=...') and len(bodyp) == 2 and bodyp[1].isdigit():
+            self.dbCurTT.execute("UPDATE subscribers SET short = %s WHERE feedname = %s AND jid = %s", (bodyp[1], feedname, fromjid,))
             self.dbCurTT.execute("COMMIT")
+            msg = str(bodyp[1])
+            if msg == '0':
+                msg = 'unlimited'
+            elif msg == '1':
+                msg = 'title only'
+            elif msg == '2':
+                msg = '1st sentence'
+            elif msg == '3':
+                msg = '1st paragraph'
+            self.sendmsg(tojid, fromjid, "Maximum size for "+feedname+" is set to "+msg)
         elif (bodyp[0] == 'showshort' or bodyp[0] == '?...'):
             if len(bodyp) > 1:
                 feedname = bodyp[1]
@@ -569,7 +561,7 @@ class Component(pyxmpp.jabberd.Component):
             self.dbCurTT.execute("UPDATE subscribers SET mute = TRUE WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
             self.sendmsg(tojid, fromjid, "Feed "+feedname+" muted")
             self.dbCurTT.execute("COMMIT")
-        elif (bodyp[0] == 'unmute' or bodyp[0] == '!!!') and len(bodyp) < 3:
+        elif (bodyp[0] == 'unmute' or bodyp[0] == '@@@') and len(bodyp) < 3:
             if len(bodyp) == 2:
                 feedname = bodyp[1]
             self.dbCurTT.execute("UPDATE subscribers SET mute = FALSE WHERE feedname = %s AND jid = %s", (feedname, fromjid,))
