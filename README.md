@@ -1,29 +1,31 @@
 # Jabber RSS Transport
 
-Транспорт для Jabber (XMPP), позволяющий получать содержимое RSS-лент в любом Jabber-клиенте. Основан на коде транспорта, использовавшегося когда-то на rss.jrudevels.org (http://wiki.jrudevels.org/Rss.jrudevels.org - разработчик Binary).
+This is a transport for Jabber (XMPP), which allows to receive content of RSS feeds in any Jabber client. Based on code of transport used on rss.jrudevels.org (http://wiki.jrudevels.org/Rss.jrudevels.org - author - Binary).
 
-## Требования
+## Requirements
 
 * python2.7
 * python-pyxmpp
 * python-feedparser
 * python-mysqldb
 
-Опционально для работы функции использования favicon.ico сайта в качестве фото в vCard надо поставить еще такие зависимости:
+Optionally you can install following dependencies for support favicon.ico of feed's site as a photo in vCard:
 
 * python-pil
 * python-lxml
 
-Проверялась работа на Debian 11 с установленными из репозитория Debian 10 зависимостями (pyxmpp 1.1.2-1, feedparser 5.2.1-1 и mysqldb 1.3.10-2). При невозможности установки из репозитория библиотеки можно скачать отдельно и разместить в каталоге транспорта. Фактически, минимально требуется только наличие python2 - из-за того, что разработка основной зависимости - pyxmpp - прекращена, а pyxmpp2 по состоянию на 2022 год не готов, запуск транспорта на python3 пока проблематичен.
+Was tested on Debian 12 with installed dependencies from Debian 10 (pyxmpp 1.1.2-1, feedparser 5.2.1-1 и mysqldb 1.3.10-2). If you can't install it from repository - you can download and place it manually in transport directory. Technically, all you need in your system is a Python2 - because of developing of transport's main dependency - pyxmpp - is stopped and it's only for python2.
 
-## Установка
+## Installation
 
-* Разместить файлы транспорта в любом удобном каталоге.
-* Создать в MySQL или MariaDB базу (проверялась работа на MariaDB 10.5.15)
-* Импортировать в созданную базу схему из jrdrss.scheme.sql
-* Добавить в конфиг-файл Jabber-сервера описание транспорта. На примере ejabberd:
+* Put files of transport in any directory.
+* Create user and database in MySQL or MariaDB (checked on MariaDB 10.11.4)
+* Import scheme from jrdrss.scheme.sql
+* Add a service definition in your jabber server config.
 
-Старый формат:
+As an example for ejabberd:
+
+Old format:
 ```
      {5555, ejabberd_service, [
                               {ip, {127.0.0.1}},
@@ -32,7 +34,7 @@
                               {host, "rss.domain.com", [{password, "superpassword"}]}
                               ]},
 ```
- Новый формат:
+New format:
 ```
     -
       port: 5555
@@ -45,25 +47,36 @@
       shaper_rule: fast
 ```
 
-* В файле config.xml транспорта прописать используемые параметры подключения - к mysql (хост, юзер, пароль и название базы) и к Jabber-серверу (название транспорта, IP, порт, пароль).
-* Тем или иным способом запустить jrdrss.py (в идеале от отдельного пользователя) - можно в GNU screen или с помощью идущего в комплекте jrdrss.service-файла для systemd. Последний можно разместить в ~/.config/systemd/user/jrdrss.service, далее выполнить:
+And for Prosody:
+```
+component_ports = 5555
+Component "rss.example.com"
+        component_secret = 'superpassword'
+```
+
+* Write into config file config.xml all required credentials: to DB (host, user, password and database name) and to Jabber server (transport name, IP, port, password).
+* Run somehow jrdrss.py (preferably from dedicated user) - you can use GNU screen or included jrdrss.service for systemd. Last one you can put into ~/.config/systemd/user/jrdrss.service, then exec:
 ```
     systemctl --user enable jrdrss.service
     systemctl --user start jrdrss.service
 ```
-* Для автостарта пользовательского service-файла использовать команду:
+* And use following command to start user's service file:
 ```
     # loginctl enable-linger username
 ```
-* ...либо все то же самое, но глобально, разместив service-файл в /etc/systemd/system, а в jrdrss.service указать нужные имя и группу пользователя.
+* ...or all the same, but globally: put service file into /etc/systemd/system, and in jrdrss.service write required home directory, username and group, then run:
+```
+    # systemctl enable jrdrss.service
+    # systemctl start  jrdrss.service
+```
 
-## Использование
+## Usage
 
-Открыть браузер сервисов, найти транспорт. Можно либо использовать поиск в контекстном меню транспорта, чтобы найти интересующую ленту (из уже зарегистрированных), либо просмотреть список доступных лент напрямую, либо зарегистрировать новую. В последнем случае нужно ввести название ленты (короткое, без пробелов; в идеале - но не обязательно - латинницей), адрес ленты, описание и выбрать интервал обновления (по умолчанию - 1 час, но для активных лент можно задать интервал вплоть до 1 минуты); также можно добавить теги. После чего в список контактов будет добавлен бот вида "имя_ленты@rss.domain.com", которого надо авторизовать и который и будет присылать новости. Чтобы отписаться от ленты - просто удаляем бота.
+Open "Service discovery", then find your transport. You can search for feeds using transport's context menu to find something interesting from already registered feeds, or you can look at list of feeds directly, or register new one. In last case you should specify feed name (short, without spaces), URL of RSS feed, some description - and select update interval (1 hour by default, but for active feeds you can set it up to 1 minute); also you can add some tags. After all into your contact list will be added a bot named "feed_name@rss.domain.com" - you should authorize it and it will deliver news after some time. To unsubscribe - just remove this bot.
 
-Лентам можно отправлять команды; для получения списка доступных команд отправьте ей help.
+You can send commands to feeds; for full list of available commands send "help" to feed.
 
-https://jabberworld.info/Jabber_RSS_Transport - подробнее и в картинках.
+https://jabberworld.info/Jabber_RSS_Transport - more details and with pictures.
 
 ----
 
