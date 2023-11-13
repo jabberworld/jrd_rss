@@ -1,6 +1,6 @@
 # Jabber RSS Transport
 
-This is a transport for Jabber (XMPP), which allows to receive content of RSS feeds in any Jabber client. Based on code of transport used on rss.jrudevels.org (http://wiki.jrudevels.org/Rss.jrudevels.org - author - Binary).
+This is a transport (service) for Jabber (XMPP), which allows to receive content of RSS feeds in any Jabber client. Based on code of transport used on rss.jrudevels.org (http://wiki.jrudevels.org/Rss.jrudevels.org - author - Binary).
 
 ## Requirements
 
@@ -47,24 +47,15 @@ New format:
       shaper_rule: fast
 ```
 
-And for Prosody:
+Or for Prosody:
 ```
 component_ports = 5555
-Component "rss.example.com"
+Component "rss.domain.com"
         component_secret = 'superpassword'
 ```
 
 * Write into config file config.xml all required credentials: to DB (host, user, password and database name) and to Jabber server (transport name, IP, port, password).
-* Run somehow jrdrss.py (preferably from dedicated user) - you can use GNU screen or included jrdrss.service for systemd. Last one you can put into ~/.config/systemd/user/jrdrss.service, then exec:
-```
-    systemctl --user enable jrdrss.service
-    systemctl --user start jrdrss.service
-```
-* And use following command to start user's service file:
-```
-    # loginctl enable-linger username
-```
-* ...or all the same, but globally: put service file into /etc/systemd/system, and in jrdrss.service write required home directory, username and group, then run:
+* Run somehow jrdrss.py - preferably from dedicated user. For example, you can use GNU screen or included jrdrss.service - put it into /etc/systemd/system, and in jrdrss.service write required home directory (with a path to service's files), username and group, then run:
 ```
     # systemctl enable jrdrss.service
     # systemctl start  jrdrss.service
