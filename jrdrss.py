@@ -1149,6 +1149,8 @@ class Component(pyxmpp.jabberd.Component):
                     fauthor = self.strip_utf8mb4(i["author"][:126])
                 if 'summary' in i:
                     fsum = self.strip_utf8mb4(i["summary"][:8190])
+                if 'yandex_full-text' in i and fsum == '':
+                    fsum = self.strip_utf8mb4(i["yandex_full-text"][:8190])
 
                 if feed[3] == 1:
                     checkdata = flink+ftitle
@@ -1209,10 +1211,12 @@ class Component(pyxmpp.jabberd.Component):
         self.stream.send(p)
 
     def sendItem(self, feedname, i, jids):
-        if 'summary' not in i or i['summary'] == None:
+        if ('summary' not in i or i['summary'] == None) and ('yandex_full-text' not in i or i['yandex_full-text'] == None):
             summary = "No description"
         else:
             summary = i["summary"].encode('utf-8')
+            if 'yandex_full-text' in i and summary == '':
+                summary = i["yandex_full-text"].encode('utf-8')
             summary = re.sub('<br ??/??>','\n',summary)
             summary = re.sub('<blockquote[^>]*>\n?', '> «', summary)
             summary = re.sub('\n +\n', '\n', summary)
