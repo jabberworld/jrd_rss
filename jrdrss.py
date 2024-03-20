@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.15"
+programmVersion="1.15.1"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -1155,7 +1155,10 @@ class Component(pyxmpp.jabberd.Component):
                 if feed[3] == 1:
                     checkdata = flink+ftitle
                 elif feed[3] == 2:
-                    checkdata = flink+ftitle+fsum
+                    if fsum is None:
+                        checkdata = flink+ftitle
+                    else:
+                        checkdata = flink+ftitle+fsum
                 else:
                     checkdata = flink
                 if not self.isSent(feedname, checkdata, feed[3]):
@@ -1195,7 +1198,7 @@ class Component(pyxmpp.jabberd.Component):
         if checktype == 1:
             self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title) = %s", (feedname, checkdata))
         elif checktype == 2:
-            self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title, content) = %s", (feedname, checkdata))
+            self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND CONCAT(link, title, IFNULL(content, '')) = %s", (feedname, checkdata))
         else:
             self.dbCurUT.execute("SELECT count(feedname) FROM sent WHERE feedname = %s AND link = %s", (feedname, checkdata))
         a = self.dbCurUT.fetchone()
