@@ -31,7 +31,7 @@ from pyxmpp.jabber.disco import DiscoItems
 
 import pyxmpp.jabberd.all
 
-programmVersion="1.15.1"
+programmVersion="1.15.2"
 
 config=os.path.abspath(os.path.dirname(sys.argv[0]))+'/config.xml'
 
@@ -468,7 +468,7 @@ class Component(pyxmpp.jabberd.Component):
             if len(bodyp) > 1:
                 myfilter = body[body.rfind(bodyp[1]):].strip()
                 if len(myfilter) < 255:
-                    print("New filter: "+myfilter)
+                    print("New filter: " + myfilter.encode('utf-8'))
                     if (bodyp[0] == 'setposfilter' or bodyp[0] == '=+'):
                         self.dbCurTT.execute("UPDATE subscribers SET posfilter = %s WHERE feedname = %s AND jid = %s", (myfilter, feedname, fromjid,))
                         self.sendmsg(tojid, fromjid, "New positive filter for "+feedname+": "+myfilter)
