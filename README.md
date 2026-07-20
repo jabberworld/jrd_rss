@@ -61,6 +61,12 @@ Component "rss.domain.com"
     # systemctl start  jrdrss.service
 ```
 
+### Docker
+```
+docker build -t py2env .
+docker run -d --network=host -m 100M --memory-swap 100M -v /path/to/jrd_rss/:/app --restart unless-stopped --name jrdrssjw py2env python2 -Bu jrdrss.py
+```
+
 ## Usage
 
 Open "Service discovery", then find your transport. You can search for feeds using transport's context menu to find something interesting from already registered feeds, or you can look at list of feeds directly, or register new one. In last case you should specify feed name (short, without spaces), URL of RSS feed, some description - and select update interval (1 hour by default, but for active feeds you can set it up to 1 minute); also you can add some tags. After all into your contact list will be added a bot named "feed_name@rss.domain.com" - you should authorize it and it will deliver news after some time. To unsubscribe - just remove this bot.
