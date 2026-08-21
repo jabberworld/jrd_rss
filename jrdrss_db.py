@@ -11,6 +11,7 @@ import sys
 import pymysql
 from pymysql.err import MySQLError as MySQLNativeError
 from pymysql.err import OperationalError as MySQLOperationalError
+from pymysql.err import InterfaceError
 
 from jrdrss_config import DB_HOST, DB_USER, DB_NAME, DB_PASS
 
@@ -172,11 +173,14 @@ class DB:
         return self.cursor
 
     def commit(self):
-        if self.conn:
-            try:
-                self.conn.commit()
-            except (AttributeError, MySQLOperationalError):
-                pass
+        if not self.conn:
+            return
+        try:
+            self.conn.commit()
+        except (AttributeError, MySQLOperationalError, InterfaceError) as msg:
+            print("DB commit error:")
+            print(msg)
+            self.connect()
 
     def close(self):
         if self.conn:

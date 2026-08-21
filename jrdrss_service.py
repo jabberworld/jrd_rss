@@ -196,6 +196,16 @@ class ServiceMixin:
         return 1
 
     def get_register(self, iq):
+        feedname = iq['to'].node
+        if feedname and self.isFeedNameRegistered(feedname):
+            reply = iq.reply()
+            q = make_el('jabber:iq:register', 'query')
+            q.append(make_el('jabber:iq:register', 'instructions',
+                             'The feed "%s" will be added to your contact list. '
+                             'Press "Register" to confirm.' % feedname))
+            reply.set_payload(q)
+            self._send(reply)
+            return 1
         if iq['to'].bare != self.name:
             raise XMPPError('feature-not-implemented')
         if not self.regallow and iq['from'].bare not in self.admins:
@@ -245,6 +255,33 @@ class ServiceMixin:
         return 1
 
     def set_register(self, iq):
+        feedname = iq['to'].node
+        if feedname and self.isFeedNameRegistered(feedname):
+            fromjid = iq['from'].bare
+            try:
+                self.dbCurRT.execute("SELECT count(*) FROM subscribers "
+                                     "WHERE jid = %s AND feedname = %s",
+                                     (fromjid, feedname))
+                already = self.dbCurRT.fetchone()[0] > 0
+            except Exception:
+                already = False
+            if not already:
+                try:
+                    self.dbCurRT.execute("INSERT INTO subscribers (jid, "
+                                         "feedname) VALUES (%s, %s)",
+                                         (fromjid, feedname))
+                except MySQLIntegrityError:
+                    pass
+                else:
+                    self.dbCurRT.execute("UPDATE feeds SET subscribers = (SELECT "
+                                         "count(jid) FROM subscribers WHERE "
+                                         "feedname = %s) WHERE feedname = %s",
+                                         (feedname, feedname,))
+                    self.dbCurRT.commit()
+                    self.dbfeeds = self.dbCurRT.dbfeeds()
+            self._add_feed_contact(feedname, fromjid)
+            self._send(iq.reply())
+            return 1
         if iq['to'].bare != self.name:
             raise XMPPError('feature-not-implemented')
 
@@ -361,7 +398,6 @@ class ServiceMixin:
         searchField = '%' + searchField.replace('%', '\\%') + '%'
         if searchField == '%%' or len(searchField) < 5:
             raise XMPPError('not-acceptable')
-        self.dbCurST.commit()
         self.dbCurST.execute("SELECT feedname, description, url, subscribers, "
                              "timeout FROM feeds WHERE (feedname LIKE %s OR "
                              "description LIKE %s OR url LIKE %s OR tags LIKE %s) "
