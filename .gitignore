@@ -1,0 +1,16 @@
+# opencode working files
+.opencode/
+.opencode/**/node_modules/
+
+# Code Brain / tool rules
+.cursor/
+CLAUDE.md
+.windsurfrules
+
+# production config with credentials
+config.xml
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/

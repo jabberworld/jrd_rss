@@ -1,40 +1,43 @@
 # Jabber RSS Transport
 
-This is a transport (service) for Jabber (XMPP), which allows to receive content of RSS feeds in any Jabber client. Based on code of transport used on rss.jrudevels.org (http://wiki.jrudevels.org/Rss.jrudevels.org - author - Binary).
+This is a transport (service) for Jabber (XMPP), which allows to receive content of RSS feeds in any Jabber client.
+Reworked with the help of AI to Python 3 + slixmpp based on the first version of the transport (for Python 2 + pyxmpp), which, in turn, was based on the code of the transport used once on rss.jrudevels.org (by Binary).
 
 ## Requirements
 
-* python2.7
-* python-pyxmpp
-* python-feedparser
-* python-mysqldb
+* Python 3.9+
+* slixmpp
+* feedparser
+* pymysql
 
 Optionally you can install following dependencies for support favicon.ico of feed's site as a photo in vCard:
 
-* python-pil
-* python-lxml
+* pillow
+* lxml
 
-Was tested on Debian 12 with installed dependencies from Debian 10 (pyxmpp 1.1.2-1, feedparser 5.2.1-1 и mysqldb 1.3.10-2). If you can't install it from repository - you can download and place it manually in transport directory. Technically, all you need in your system is a Python2 - because of developing of transport's main dependency - pyxmpp - is stopped and it's only for python2.
+Dependencies can be installed with pip:
+
+```
+pip install slixmpp feedparser pymysql pillow lxml
+```
+
+Or by installing system-wide packages:
+
+```
+apt-get install python3-slixmpp python3-feedparser python3-pymysql python3-pil python3-lxml
+```
+
+Was tested on Debian 13 with slixmpp 1.10.
 
 ## Installation
 
 * Put files of transport in any directory.
-* Create user and database in MySQL or MariaDB (checked on MariaDB 10.11.4)
-* Import scheme from jrdrss.scheme.sql
+* Install the dependencies (see Requirements above).
+* Create user and database in MySQL or MariaDB (checked on MariaDB 11.8). The scheme is created and updated in the database automatically at startup.
 * Add a service definition in your jabber server config.
 
-As an example for ejabberd:
+For ejabberd:
 
-Old format:
-```
-     {5555, ejabberd_service, [
-                              {ip, {127.0.0.1}},
-                              {access, all},
-                              {shaper_rule, fast},
-                              {host, "rss.domain.com", [{password, "superpassword"}]}
-                              ]},
-```
-New format:
 ```
     -
       port: 5555
@@ -50,22 +53,21 @@ New format:
 Or for Prosody:
 ```
 component_ports = 5555
-Component "rss.domain.com"
+Component "rss.example.com"
         component_secret = 'superpassword'
 ```
 
+
 * Write into config file config.xml all required credentials: to DB (host, user, password and database name) and to Jabber server (transport name, IP, port, password).
-* Run somehow jrdrss.py - preferably from dedicated user. For example, you can use GNU screen or included jrdrss.service - put it into /etc/systemd/system, and in jrdrss.service write required home directory (with a path to service's files), username and group, then run:
-```
-    # systemctl enable jrdrss.service
-    # systemctl start  jrdrss.service
-```
+* Run somehow jrdrss.py (preferably from dedicated user) - for example, using the bundled jrdrss.service file for systemd, placing it into /etc/systemd/system, and writing the required user and group into jrdrss.service.
 
 ## Usage
 
-Open "Service discovery", then find your transport. You can search for feeds using transport's context menu to find something interesting from already registered feeds, or you can look at list of feeds directly, or register new one. In last case you should specify feed name (short, without spaces), URL of RSS feed, some description - and select update interval (1 hour by default, but for active feeds you can set it up to 1 minute); also you can add some tags. After all into your contact list will be added a bot named "feed_name@rss.domain.com" - you should authorize it and it will deliver news after some time. To unsubscribe - just remove this bot.
+Open "Service discovery", then find your transport. You can search for feeds using transport's context menu to find something interesting from already registered feeds, or you can look at list of feeds directly, or register new one. In last case you should specify feed name (short, without spaces; ideally - but not necessarily - latin), URL of RSS feed, some description - and select update interval (1 hour by default, but for active feeds you can set it up to 1 minute); also you can add some tags. After all into your contact list will be added a bot named "feed_name@rss.domain.com" - you should authorize it and it will deliver news after some time. To unsubscribe - just remove this bot.
 
 You can send commands to feeds; for full list of available commands send "help" to feed.
+
+The transport and each feed also expose Ad-Hoc commands (XEP-0050) in service discovery. A feed has commands for viewing and editing its parameters and subscription settings; the transport itself offers registration of a new feed, as well as viewing the existing ones. A feed can also be added to your contact list directly via its registration request (`jabber:iq:register`) in service discovery.
 
 https://jabberworld.info/Jabber_RSS_Transport - more details and with pictures.
 

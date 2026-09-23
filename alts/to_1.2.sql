@@ -1,1 +1,0 @@
-ALTER TABLE feeds ADD private BOOLEAN DEFAULT FALSE AFTER timeout;
