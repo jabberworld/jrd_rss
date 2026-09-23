@@ -1,23 +1,40 @@
+# Project agent instructions
+
+<!-- CODE_BRAIN_MANDATORY -->
+## Code Brain MCP - Mandatory when loaded
+
+Use Code Brain MCP first for substantive tasks in this project.
+
+- Start with `start_task(runIntake=true)` or `neural_sync`.
+- Use `agent_plan` before `agent_code` for chunk and deep work.
+- Use `memory_retrieve` at intake and `memory_store` at task end.
+- Use `uncertainty_guard` before storing conclusions.
+- Disable duplicate MCPs with `get_superseded_mcps`.
+<!-- CODE_BRAIN_MANDATORY -->
+
 # JRSS — Архитектура проекта
+
+## Правило поддержки документации
+
+`AGENTS.md` и `SPEC.md` всегда поддерживаются в актуальном состоянии при
+изменениях в проекте. Все изменения коммитятся в локальный git.
 
 ## Обзор
 
 **JRSS** — XMPP-компонент (транспорт), доставляющий RSS-ленты пользователям Jabber в виде отдельных ботов. Каждая лента становится JID в ростере (`feedname@transport.domain`), а новые статьи приходят как сообщения в чат.
 
-- **Версия**: 2.1.0
+- **Версия**: 2.1.1
 - **Python**: 3.9+ (требуется `asyncio.to_thread`)
 - **XMPP-библиотека**: slixmpp 1.10+
 - **БД**: MySQL / MariaDB через PyMySQL
 - **Лицензия**: GPL v3
 
-Два поколения проекта:
-- **Legacy** (корень репозитория): Python 2 + pyxmpp, версия 1.15.2 — **не используется**
-- **Современное** (`py3/`): Python 3 + slixmpp, версия 2.1.0 — **активная версия**
+Проект полностью переведён на Python 3. Старая (Python 2, pyxmpp, версия 1.15.2)
+версия удалена из репозитория.
 
 ## Структура файлов
 
 ```
-py3/
 ├── jrdrss.py            Транспорт: жизненный цикл, presence, entry point, selftest
 ├── jrdrss_config.py     Конфигурация: загрузка XML, глобальные настройки
 ├── jrdrss_db.py         БД: класс DB, авто-миграция схемы, реконнект
@@ -25,9 +42,11 @@ py3/
 ├── jrdrss_dialog.py     Текстовые команды (диалог с ботом через сообщения)
 ├── jrdrss_service.py    IQ-обработчики: version, vCard, register, search, disco
 ├── jrdrss_adhoc.py      XEP-0050 Ad-Hoc Commands (корневые + per-feed)
-├── jrdrss.service       systemd unit для Python 3
-├── config.xml           Конфигурация (production)
+├── jrdrss.service       systemd unit
+├── config.xml           Конфигурация (production; в git не попадает)
 ├── config.xml.example   Пример конфигурации
+├── AGENTS.md            Инструкции агентам + архитектура (этот файл)
+├── SPEC.md              Детальная спецификация проекта
 ├── CHANGELOG.md         Полный журнал изменений
 ├── README.md            Документация (англ.)
 └── README.ru.md         Документация (рус.)
@@ -72,7 +91,7 @@ Transport наследует `ComponentXMPP` и все 4 миксина чере
 
 ## Конфигурация
 
-Файл `config.xml` загружается при импорте `jrdrss_config.py`. Порядок поиска: `$JRSS_CONFIG` → `py3/config.xml` → `../config.xml`.
+Файл `config.xml` загружается при импорте `jrdrss_config.py`. Порядок поиска: `$JRSS_CONFIG` → `config.xml` (рядом со скриптом) → `../config.xml`.
 
 ```xml
 <config>
@@ -122,36 +141,37 @@ update_loop() [каждые 15 сек]
               c. sendmsg() → XMPP chat message подписчику
               d. INSERT INTO sent (дедупликация)
           4. Расчёт адаптивного интервала: 3600 / hourly_count
-          5. Очистка архива старше sentsize дней
+          5. botstatus() → рассылка свежего presence (show/status) ВСЕМ подписчикам
+          6. Очистка архива старше sentsize дней
 ```
 
 ## Тестирование
 
 ```bash
 # Self-test: проверка clean_summary, format_news_item, strip_utf8mb4
-cd py3 && python3 jrdrss.py --selftest
+python3 jrdrss.py --selftest
 
 # Dry-run: загрузка и парсинг всех лент без отправки сообщений
-cd py3 && python3 jrdrss.py --dryrun
+python3 jrdrss.py --dryrun
 
 # Запуск транспорта
-cd py3 && python3 -u jrdrss.py
+python3 -u jrdrss.py
 ```
 
 ## Типичные ошибки
 
-1. **feedparser-конфликт** — при запуске из корня проекта Python подхватывает `feedparser.py` (Python 2). Всегда запускать из `py3/`.
+1. **InterfaceError(0, '')** — PyMySQL при обрыве TCP-соединения. Обрабатывается в `DB.commit()` и `DB.execute()` с авто-реконнектом.
 
-2. **InterfaceError(0, '')** — PyMySQL при обрыве TCP-соединения. Обрабатывается в `DB.commit()` и `DB.execute()` с авто-реконнектом.
+2. **utf8mb4** — эмодзи и символы ≥ 4 байт заменяются на `*` перед записью в БД через `strip_utf8mb4()`.
 
-3. **utf8mb4** — эмодзи и символы ≥ 4 байт заменяются на `*` перед записью в БД через `strip_utf8mb4()`.
+3. **Bozo feeds** — некорректный XML. feedparser парсит что может; `NonXMLContentType` — допустимое исключение.
 
-4. **Bozo feeds** — некорректный XML. feedparser парсит что может; `NonXMLContentType` — допустимое исключение.
+4. **asyncio.to_thread** — требует Python 3.9+. CPU-bound операции (парсинг лент) выполняются в отдельном потоке.
 
-5. **asyncio.to_thread** — требует Python 3.9+. CPU-bound операции (парсинг лент) выполняются в отдельном потоке.
+5. **Привилегии команд** — команды `+`, `update`, `updateall`, `showall`, `purgelast`, `purgeall` доступны только администраторам (список `admins` в конфиге).
 
-6. **Привилегии команд** — команды `+`, `update`, `updateall`, `showall`, `purgelast`, `purgeall` доступны только администраторам (список `admins` в конфиге).
+6. **Символ `:`** в текстовых командах заменяет имя текущей ленты (ленты, в которую отправлена команда).
 
-7. **Символ `:`** в текстовых командах заменяет имя текущей ленты (ленты, в которую отправлена команда).
+7. **Минимальный интервал** — 60 секунд. Значение < 60 автоматически заменяется на 60.
 
-8. **Минимальный интервал** — 60 секунд. Значение < 60 автоматически заменяется на 60.
+8. **config.xml** — содержит production-креды и исключён из git (`.gitignore`). Для деплоя копируется вручную из `config.xml.example`.

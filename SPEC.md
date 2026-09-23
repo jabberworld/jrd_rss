@@ -37,8 +37,8 @@
 Формат XML. Загружается при импорте `jrdrss_config.py`. Порядок поиска:
 
 1. Переменная окружения `$JRSS_CONFIG`
-2. `py3/config.xml` (относительно рабочей директории)
-3. `../config.xml` (относительно рабочей директории)
+2. `config.xml` (в каталоге скрипта / рабочей директории)
+3. `../config.xml` (относительно каталога скрипта)
 
 Элементы XML и соответствующие переменные модуля:
 
@@ -84,7 +84,7 @@
 - Устанавливает глобальный таймаут сокета: `socket.setdefaulttimeout(10)`
 - Если `ICONLOGO=1`, импортирует `PIL.Image` и `lxml.html`
 - Содержит base64-кодированный PNG RSS-иконки (`rsslogo`) как дефолтное vCard-фото
-- Версия: `programmVersion = "2.1.0"`
+- Версия: `programmVersion = "2.1.1"`
 
 ## 5. База данных
 
@@ -312,7 +312,7 @@ class FeedMixin:
     async def _run_checkrss(self, checkfeeds)  # asyncio.to_thread
     def checkrss(self, checkfeeds)    # Основной цикл обновления
     def isSent(self, feedname, checkdata, checktype) -> bool
-    def botstatus(self, feedname, jid)
+    def botstatus(self, feedname, jids)  # Разослать свежий presence всем подписчикам
     def sendItem(self, feedname, item, jids)
 
     @staticmethod
@@ -329,6 +329,22 @@ def format_news_item(item, summary, jids) -> list[tuple[str, str]]
     # Возвращает [(bare_jid, text), ...] для каждого подписчика
     # Учитывает posfilter, negfilter, short, mute
 ```
+
+#### `botstatus` (рассылка presence)
+
+```python
+def botstatus(self, feedname, jids):
+    # jids — все строки подписчиков ленты (jid, posfilter, negfilter, short, mute)
+    show   = self.get_show(feedname)    # вычисляется один раз
+    status = self.get_status(feedname)
+    for row in jids:
+        self.send_feed_presence(feedname, row[0], show=show, status=status)
+    # Отправляет available-presence со свежим show/status КАЖДОМУ подписчику
+```
+
+Вызывается из `checkrss()` после каждого цикла обновления ленты и при ошибке
+загрузки (`new = -1`). Подписчики равноправны — рассылка ведётся всем без
+исключения.
 
 #### Константа `SAMPLE_FEED`
 
@@ -501,7 +517,7 @@ ComponentXMPP(NAME, PASSWORD, HOST, PORT, plugin_whitelist=['xep_0030', 'xep_005
 <iq type="result">
   <query xmlns="jabber:iq:version">
     <name>Jabber RSS Transport</name>
-    <version>2.1.0</version>
+    <version>2.1.1</version>
     <os>Linux</os>
   </query>
 </iq>
@@ -564,6 +580,14 @@ def _handle_probe(self, pres):
     # show: 'chat' (статьи за час > 0), 'away' (статьи за день > 0), 'xa' (есть за 24ч), None
     # status: описание, количество новостей за час/день, время обновления, следующее обновление, количество подписчиков
 ```
+
+#### Рассылка после обновления (broadcast)
+
+После каждого цикла `checkrss()` от `botstatus()` лента отправляет
+`available`-presence со свежим `show`/`status` **всем подписчикам без
+исключения** (по списку из таблицы `subscribers`). То же происходит при ошибке
+загрузки ленты (`new = -1`, show = 'xa'). Дополнительные каналы получения
+presence — ответ на `available` от пользователя и на probe (см. выше).
 
 ### Формат сообщения
 
@@ -637,7 +661,10 @@ def checkrss(self, checkfeeds):
         if self.adaptive:
             self.adaptime[feedname] = max(60, min(3600 / max(1, hourly_count), timeout))
 
-        # 7. Очистка архива
+        # 7. Рассылка свежего presence всем подписчикам
+        self.botstatus(feedname, subscribers)
+
+        # 8. Очистка архива
         self.dbCurUT.execute(
             "DELETE FROM sent WHERE feedname = %s AND income < NOW() - INTERVAL %s DAY",
             (feedname, self.sentsize)
@@ -882,6 +909,7 @@ WantedBy=multi-user.target
 
 | Версия | Основные изменения |
 |--------|--------------------|
+| 2.1.1  | Рассылка presence после обновления ленты всем подписчикам (botstatus) |
 | 2.1.0  | XEP-0050 Ad-Hoc Commands (per-feed + root), XEP-0077 register to feeds, disco fixes |
 | 2.0.0  | Полный порт на Python 3 + slixmpp, asyncio, авто-миграция схемы |
 | 1.15.2 | mute-режим, checktype (link/title/content) |

@@ -12,8 +12,8 @@
 #   jrdrss_dialog.py   - message command handling
 #   jrdrss_service.py  - IQ handlers (version/vCard/register/search/disco)
 #
-# Run from this directory (py3/) to avoid the Python 2 vendored libraries
-# (feedparser.py, pyxmpp/, MySQLdb/, PIL/, lxml/) shadowing the real modules.
+# Run from the repository root (the Python 2 vendored libraries, if present,
+# were removed; the transport is fully Python 3).
 
 import asyncio
 import sys

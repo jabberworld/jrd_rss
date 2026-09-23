@@ -184,7 +184,7 @@ class FeedMixin:
                 if type(d.bozo_exception).__name__ != 'NonXMLContentType':
                     print("Some problems with feed")
                     self.new[feedname] = -1
-                    self.botstatus(feedname, jids[0])
+                    self.botstatus(feedname, jids)
                     continue
                 else:
                     print('Bozo flag: NonXMLContentType in ' + feedname)
@@ -242,7 +242,7 @@ class FeedMixin:
                 self.adaptime[feedname] = int(feed[2])
 
             print("End of update")
-            self.botstatus(feedname, jids[0])
+            self.botstatus(feedname, jids)
 
         # purging old records
         self.dbCurUT.execute("DELETE FROM sent WHERE datetime < NOW() - "
@@ -267,10 +267,12 @@ class FeedMixin:
         a = self.dbCurUT.fetchone()
         return a[0] > 0
 
-    def botstatus(self, feedname, jid):
-        self.send_feed_presence(feedname, jid[0],
-                                show=self.get_show(feedname),
-                                status=self.get_status(feedname))
+    def botstatus(self, feedname, jids):
+        show = self.get_show(feedname)
+        status = self.get_status(feedname)
+        for row in jids:
+            self.send_feed_presence(feedname, row[0],
+                                    show=show, status=status)
 
     def sendItem(self, feedname, i, jids):
         if (('summary' not in i or i['summary'] is None) and

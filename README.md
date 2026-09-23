@@ -31,7 +31,7 @@ Was tested on Debian 13 with slixmpp 1.10.
 
 ## Installation
 
-* Put files of transport in any directory (the Python 3 version lives in the py3/ subdirectory).
+* Put files of transport in any directory.
 * Install the dependencies (see Requirements above).
 * Create user and database in MySQL or MariaDB (checked on MariaDB 11.8). The scheme is created and updated in the database automatically at startup.
 * Add a service definition in your jabber server config.
@@ -67,7 +67,7 @@ Open "Service discovery", then find your transport. You can search for feeds usi
 
 You can send commands to feeds; for full list of available commands send "help" to feed.
 
-The transport and each feed also expose Ad-Hoc commands (XEP-0050) in service discovery. A feed has commands for viewing and editing its parameters and subscription settings; the transport itself offers registration of a new feed, as well as viewing the existing ones.
+The transport and each feed also expose Ad-Hoc commands (XEP-0050) in service discovery. A feed has commands for viewing and editing its parameters and subscription settings; the transport itself offers registration of a new feed, as well as viewing the existing ones. A feed can also be added to your contact list directly via its registration request (`jabber:iq:register`) in service discovery.
 
 https://jabberworld.info/Jabber_RSS_Transport - more details and with pictures.
 
