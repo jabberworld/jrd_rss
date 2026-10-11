@@ -47,15 +47,6 @@ ADHOC_ROOT_NAMES = {item[0]: item[1] for item in ADHOC_ROOT_COMMANDS}
 ALL_ADHOC = ADHOC_COMMANDS + ADHOC_ROOT_COMMANDS
 
 
-def short_label(value):
-    return {0: 'Unlimited', 1: 'Title only', 2: '1st sentence',
-            3: '1st paragraph'}.get(value, str(value))
-
-
-def priority_label(value):
-    return {1: 'Low', 2: 'Normal', 3: 'High'}.get(value, 'Normal')
-
-
 class _AdHocCommands(dict):
     """Version-independent command registry for the XEP-0050 plugin.
 
@@ -201,10 +192,16 @@ class AdHocMixin:
         self._form_type_field(form)
         form.add_field('posfilter', label='Positive filter', value=row[0] or '')
         form.add_field('negfilter', label='Negative filter', value=row[1] or '')
-        form.add_field('short', label='Message size', value=short_label(row[2]))
-        form.add_field('mute', label='Muted', value=bool(row[3]))
-        form.add_field('priority', label='News priority',
-                       value=priority_label(row[4]))
+        short = form.add_field('short', 'list-single', label='Message size',
+                               value=str(row[2]))
+        for v, l in [(0, 'Unlimited (0)'), (1, 'Title only (1)'),
+                     (2, '1st sentence (2)'), (3, '1st paragraph (3)')]:
+            short.add_option(label=l, value=str(v))
+        form.add_field('mute', 'boolean', label='Muted', value=bool(row[3]))
+        priority = form.add_field('priority', 'list-single',
+                                  label='News priority', value=str(row[4]))
+        for v, l in [(1, 'Low'), (2, 'Normal'), (3, 'High')]:
+            priority.add_option(label=l, value=str(v))
         session['payload'] = form
         return session
 
