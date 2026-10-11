@@ -84,7 +84,7 @@
 - Устанавливает глобальный таймаут сокета: `socket.setdefaulttimeout(10)`
 - Если `ICONLOGO=1`, импортирует `PIL.Image` и `lxml.html`
 - Содержит base64-кодированный PNG RSS-иконки (`rsslogo`) как дефолтное vCard-фото
-- Версия: `programmVersion = "2.2.1"`
+- Версия: `programmVersion = "2.2.2"`
 
 ## 5. База данных
 
@@ -544,7 +544,7 @@ ComponentXMPP(NAME, PASSWORD, HOST, PORT, plugin_whitelist=['xep_0030', 'xep_005
 <iq type="result">
   <query xmlns="jabber:iq:version">
     <name>Jabber RSS Transport</name>
-    <version>2.2.1</version>
+    <version>2.2.2</version>
     <os>Linux</os>
   </query>
 </iq>
@@ -831,7 +831,7 @@ def isSent(self, feedname, item, checktype):
 | Название      | Описание                  | Шаги                                          |
 |---------------|---------------------------|------------------------------------------------|
 | `view-info`   | Информация о ленте       | Просмотр всех параметров                      |
-| `view-sub`    | Моя подписка              | Просмотр настроек подписки                    |
+| `view-sub`    | Моя подписка              | Просмотр настроек подписки (нередактируемая форма: фильтры, «Message size» и «News priority» — селекторы, «Muted» — галочка) |
 | `edit-info`   | Редактирование ленты      | Форма → `adhoc_edit_info_apply`               |
 | `edit-sub`    | Редактирование подписки   | Форма → `adhoc_edit_sub_apply`                |
 | `edit-privacy`| Приватность ленты         | Форма → `adhoc_edit_privacy_apply`            |
@@ -938,6 +938,7 @@ WantedBy=multi-user.target
 
 | Версия | Основные изменения |
 |--------|--------------------|
+| 2.2.2  | Ad-Hoc «My subscription»: «Message size» и «News priority» показаны селекторами, «Muted» — галочкой (как в «Edit subscription») |
 | 2.2.1  | Ручная выдача последних статей (`1..20`) учитывает приоритет подписки (Urgency для low/high) |
 | 2.2.0  | Приоритет новостей для подписки (setprio/showprio, Ad-Hoc «Edit subscription»), XEP-0131 Urgency для low/high, схема v3 |
 | 2.1.1  | Рассылка presence после обновления ленты всем подписчикам (botstatus) |
