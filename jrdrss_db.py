@@ -19,7 +19,7 @@ from jrdrss_config import DB_HOST, DB_USER, DB_NAME, DB_PASS
 # original jrdrss.scheme.sql. Later versions are applied on top of it by
 # ALTER-style migrations, so connecting to an already existing ("old")
 # database upgrades it in place without data loss.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Base DDL (schema version 1). Statements are idempotent.
 SCHEMA = [
@@ -41,7 +41,8 @@ feedname varchar(255),
 posfilter varchar(255) DEFAULT NULL,
 negfilter varchar(255) DEFAULT NULL,
 short INT DEFAULT 0,
-mute BOOLEAN DEFAULT false
+mute BOOLEAN DEFAULT false,
+priority INT NOT NULL DEFAULT 2
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci""",
     """CREATE TABLE IF NOT EXISTS sent (
 feedname varchar(255),
@@ -95,6 +96,9 @@ MIGRATIONS = {
         "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
         "ALTER TABLE sent MODIFY income DATETIME NOT NULL DEFAULT "
         "CURRENT_TIMESTAMP",
+    ],
+    3: [
+        "ALTER TABLE subscribers ADD COLUMN priority INT NOT NULL DEFAULT 2",
     ],
 }
 

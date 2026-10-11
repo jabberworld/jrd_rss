@@ -84,7 +84,7 @@
 - Устанавливает глобальный таймаут сокета: `socket.setdefaulttimeout(10)`
 - Если `ICONLOGO=1`, импортирует `PIL.Image` и `lxml.html`
 - Содержит base64-кодированный PNG RSS-иконки (`rsslogo`) как дефолтное vCard-фото
-- Версия: `programmVersion = "2.1.1"`
+- Версия: `programmVersion = "2.2.0"`
 
 ## 5. База данных
 
@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
     negfilter   VARCHAR(255) DEFAULT NULL,
     short       INT DEFAULT 0,
     mute        BOOLEAN DEFAULT false,
+    priority    INT NOT NULL DEFAULT 2,
     UNIQUE KEY (jid, feedname),
     KEY (feedname)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -150,6 +151,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
 | negfilter | VARCHAR  | Негативный regex-фильтр (исключить совпадающие)                 |
 | short     | INT      | Режим обрезки: 0=полный, 1=заголовок, 2=предложение, 3=абзац  |
 | mute      | BOOLEAN  | Заглушён (статьи не приходят, но ручной fetch работает)         |
+| priority  | INT      | Приоритет новостей: 1=низкий, 2=обычный (default), 3=высокий  |
 
 ### Таблица `sent`
 
@@ -187,7 +189,7 @@ CREATE TABLE IF NOT EXISTS sent (
 CREATE TABLE schema_version (version INT NOT NULL);
 ```
 
-Хранит текущую версию схемы. Текущая версия: **2**.
+Хранит текущую версию схемы. Текущая версия: **3**.
 
 ### Миграции
 
@@ -197,6 +199,8 @@ CREATE TABLE schema_version (version INT NOT NULL);
 3. Применяет миграции из словаря `MIGRATIONS` последовательно
 
 Миграция v1→v2: добавление PK, уникальных ключей, индексов, удаление дубликатов, расширение TEXT-полей.
+
+Миграция v2→v3: `ALTER TABLE subscribers ADD COLUMN priority INT NOT NULL DEFAULT 2` (для свежих БД колонка уже есть в базовом DDL, повторное добавление игнорируется по коду ошибки `1060`).
 
 ### Класс `DB`
 
@@ -325,16 +329,35 @@ class FeedMixin:
 def clean_summary(summary) -> str
     # HTML → plain text: <br>\n, <blockquote> → > «...», strip tags, entities
 
-def format_news_item(item, summary, jids) -> list[tuple[str, str]]
-    # Возвращает [(bare_jid, text), ...] для каждого подписчика
+def format_news_item(item, summary, jids) -> list[tuple[str, str, int]]
+    # Возвращает [(bare_jid, text, priority), ...] для каждого подписчика
     # Учитывает posfilter, negfilter, short, mute
+    # priority берётся из строки подписчика (6-е поле), иначе 2 (обычный)
 ```
+
+#### `sendmsg` (отправка сообщения)
+
+```python
+def sendmsg(self, fromjid, tojid, msg, priority=2):
+    # Собирает chat-message от JID ленты (ресурс /rss)
+    # Для priority 1/3 добавляет заголовок XEP-0131 Urgency (low/high)
+```
+
+Для приоритетов 1 (низкий) и 3 (высокий) к станзе добавляется:
+
+```xml
+<headers xmlns="http://jabber.org/protocol/shim">
+  <header name="Urgency">low</header>
+</headers>
+```
+
+Для приоритета 2 заголовок не добавляется (поведение по умолчанию).
 
 #### `botstatus` (рассылка presence)
 
 ```python
 def botstatus(self, feedname, jids):
-    # jids — все строки подписчиков ленты (jid, posfilter, negfilter, short, mute)
+    # jids — все строки подписчиков ленты (jid, posfilter, negfilter, short, mute, priority)
     show   = self.get_show(feedname)    # вычисляется один раз
     status = self.get_status(feedname)
     for row in jids:
@@ -517,7 +540,7 @@ ComponentXMPP(NAME, PASSWORD, HOST, PORT, plugin_whitelist=['xep_0030', 'xep_005
 <iq type="result">
   <query xmlns="jabber:iq:version">
     <name>Jabber RSS Transport</name>
-    <version>2.1.1</version>
+    <version>2.2.0</version>
     <os>Linux</os>
   </query>
 </iq>
@@ -640,12 +663,12 @@ def checkrss(self, checkfeeds):
             if self.isSent(feedname, item, checktype):
                 continue
 
-            # 4b. Форматирование (фильтры, short-режим)
+            # 4b. Форматирование (фильтры, short-режим, приоритет)
             messages = format_news_item(item, clean_summary(item.summary), subscribers)
 
-            # 4c. Отправка
-            for jid, text in messages:
-                self.sendmsg(feedname + '@' + self.name, jid, text)
+            # 4c. Отправка (Urgency для priority 1/3)
+            for jid, text, priority in messages:
+                self.sendmsg(feedname + '@' + self.name, jid, text, priority=priority)
 
             # 4d. Запись в архив
             self.dbCurUT.execute(
@@ -750,6 +773,7 @@ def isSent(self, feedname, item, checktype):
 | Команда | Алиас | Синтаксис | Описание |
 |---------|-------|-----------|----------|
 | `setshort` | `=...` | `setshort SYMBOLS` | Режим обрезки (0-3) |
+| `setprio` | `=^` | `setprio N` | Приоритет новостей (1=низкий, 2=обычный, 3=высокий) |
 | `setposfilter` | `=+` | `setposfilter [EXP]` | Позитивный regex-фильтр |
 | `setnegfilter` | `=-` | `setnegfilter [EXP]` | Негативный regex-фильтр |
 | `mute` | `~~~` | `mute [NAME]` | Заглушить ленту |
@@ -765,6 +789,7 @@ def isSent(self, feedname, item, checktype):
 | `showuniq` | `?()` | `showuniq [NAME]` | Показать тип дедупликации |
 | `showadap` | `?%` | `showadap [NAME]` | Показать текущий адаптивный интервал |
 | `showshort` | `?...` | `showshort [NAME]` | Показать режим обрезки |
+| `showprio` | `?^` | `showprio [NAME]` | Показать приоритет новостей |
 | `showfilter` | `?+-` | `showfilter [NAME]` | Показать фильтры |
 | `showmyprivate` | `?***` | `showmyprivate` | Мои приватные ленты |
 | `showmyfeeds` | `?~` | `showmyfeeds` | Мои зарегистрированные ленты |
@@ -909,6 +934,7 @@ WantedBy=multi-user.target
 
 | Версия | Основные изменения |
 |--------|--------------------|
+| 2.2.0  | Приоритет новостей для подписки (setprio/showprio, Ad-Hoc «Edit subscription»), XEP-0131 Urgency для low/high, схема v3 |
 | 2.1.1  | Рассылка presence после обновления ленты всем подписчикам (botstatus) |
 | 2.1.0  | XEP-0050 Ad-Hoc Commands (per-feed + root), XEP-0077 register to feeds, disco fixes |
 | 2.0.0  | Полный порт на Python 3 + slixmpp, asyncio, авто-миграция схемы |
