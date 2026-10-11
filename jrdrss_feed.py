@@ -58,7 +58,9 @@ def format_news_item(i, summary, jids):
 
     jids rows: (jid, posfilter, negfilter, short[, mute[, priority]]) - the
     5-field form is used by the selftest, the 6-field form by the regular
-    update cycle. Calls from the dialog (``1..20``) pass 4 fields.
+    update cycle. Calls from the dialog (``1..20``) also pass 6 fields, with
+    filters disabled (None) and mute False, so only ``short`` and ``priority``
+    take effect.
     Returns a list of (bare_jid, text, priority) tuples.
     """
     out = []

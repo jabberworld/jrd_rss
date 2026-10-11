@@ -84,7 +84,7 @@
 - Устанавливает глобальный таймаут сокета: `socket.setdefaulttimeout(10)`
 - Если `ICONLOGO=1`, импортирует `PIL.Image` и `lxml.html`
 - Содержит base64-кодированный PNG RSS-иконки (`rsslogo`) как дефолтное vCard-фото
-- Версия: `programmVersion = "2.2.0"`
+- Версия: `programmVersion = "2.2.1"`
 
 ## 5. База данных
 
@@ -353,6 +353,10 @@ def sendmsg(self, fromjid, tojid, msg, priority=2):
 
 Для приоритета 2 заголовок не добавляется (поведение по умолчанию).
 
+Заголовок действует для всех путей доставки новостей: как при автоматическом
+обновлении ленты (`checkrss`), так и при ручной выдаче последних статей командой
+`1..20` (она тоже учитывает приоритет подписки).
+
 #### `botstatus` (рассылка presence)
 
 ```python
@@ -540,7 +544,7 @@ ComponentXMPP(NAME, PASSWORD, HOST, PORT, plugin_whitelist=['xep_0030', 'xep_005
 <iq type="result">
   <query xmlns="jabber:iq:version">
     <name>Jabber RSS Transport</name>
-    <version>2.2.0</version>
+    <version>2.2.1</version>
     <os>Linux</os>
   </query>
 </iq>
@@ -807,7 +811,7 @@ def isSent(self, feedname, item, checktype):
 
 | Команда | Синтаксис | Описание |
 |---------|-----------|----------|
-| `1..20` | `N` | Загрузить последние N статей |
+| `1..20` | `N` | Загрузить последние N статей (с учётом приоритета подписки) |
 | `top` | `top [today\|day\|week\|month]` | Топ-10 лент по количеству новостей за период (d/w/m — короткие формы) |
 
 ## 10. Ad-Hoc Commands (XEP-0050)
@@ -934,6 +938,7 @@ WantedBy=multi-user.target
 
 | Версия | Основные изменения |
 |--------|--------------------|
+| 2.2.1  | Ручная выдача последних статей (`1..20`) учитывает приоритет подписки (Urgency для low/high) |
 | 2.2.0  | Приоритет новостей для подписки (setprio/showprio, Ad-Hoc «Edit subscription»), XEP-0131 Urgency для low/high, схема v3 |
 | 2.1.1  | Рассылка presence после обновления ленты всем подписчикам (botstatus) |
 | 2.1.0  | XEP-0050 Ad-Hoc Commands (per-feed + root), XEP-0077 register to feeds, disco fixes |

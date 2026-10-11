@@ -475,10 +475,11 @@ class MessageMixin:
                                  "link ORDER BY income DESC LIMIT %s",
                                  (feedname, int(bodyp[0])))
             news = self.dbCurTT.fetchall()
-            self.dbCurTT.execute("SELECT jid, posfilter, negfilter, short FROM "
+            self.dbCurTT.execute("SELECT jid, short, priority FROM "
                                  "subscribers WHERE feedname = %s AND jid = %s",
                                  (feedname, fromjid))
-            jids = self.dbCurTT.fetchall()
+            jids = [(row[0], None, None, row[1], False, row[2])
+                    for row in self.dbCurTT.fetchall()]
             for msgrow in reversed(news):
                 self.sendItem(feedname, {'title': msgrow[0], 'author': msgrow[1],
                                          'link': msgrow[2], 'summary': msgrow[3]},
