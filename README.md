@@ -65,7 +65,7 @@ Component "rss.example.com"
 
 Open "Service discovery", then find your transport. You can search for feeds using transport's context menu to find something interesting from already registered feeds, or you can look at list of feeds directly, or register new one. In last case you should specify feed name (short, without spaces; ideally - but not necessarily - latin), URL of RSS feed, some description - and select update interval (1 hour by default, but for active feeds you can set it up to 1 minute); also you can add some tags. After all into your contact list will be added a bot named "feed_name@rss.domain.com" - you should authorize it and it will deliver news after some time. To unsubscribe - just remove this bot.
 
-You can send commands to feeds; for full list of available commands send "help" to feed.
+You can send commands to feeds; for full list of available commands send "help" to feed. Each subscription has a news priority (`setprio`/`showprio`, also editable in the feed's Ad-Hoc "Edit subscription" command): 1 is low, 2 is normal (default) and 3 is high. Low and high priorities add an `Urgency` header (XEP-0131) to delivered news messages.
 
 The transport and each feed also expose Ad-Hoc commands (XEP-0050) in service discovery. A feed has commands for viewing and editing its parameters and subscription settings; the transport itself offers registration of a new feed, as well as viewing the existing ones. A feed can also be added to your contact list directly via its registration request (`jabber:iq:register`) in service discovery.
 

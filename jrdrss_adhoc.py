@@ -52,6 +52,10 @@ def short_label(value):
             3: '1st paragraph'}.get(value, str(value))
 
 
+def priority_label(value):
+    return {1: 'Low', 2: 'Normal', 3: 'High'}.get(value, 'Normal')
+
+
 class _AdHocCommands(dict):
     """Version-independent command registry for the XEP-0050 plugin.
 
@@ -182,8 +186,9 @@ class AdHocMixin:
             return session
         try:
             self.dbCurTT.execute(
-                "SELECT posfilter, negfilter, short, mute FROM subscribers "
-                "WHERE feedname = %s AND jid = %s", (feedname, fromjid))
+                "SELECT posfilter, negfilter, short, mute, priority "
+                "FROM subscribers WHERE feedname = %s AND jid = %s",
+                (feedname, fromjid))
             row = self.dbCurTT.fetchone()
         except Exception:
             row = None
@@ -198,6 +203,8 @@ class AdHocMixin:
         form.add_field('negfilter', label='Negative filter', value=row[1] or '')
         form.add_field('short', label='Message size', value=short_label(row[2]))
         form.add_field('mute', label='Muted', value=bool(row[3]))
+        form.add_field('priority', label='News priority',
+                       value=priority_label(row[4]))
         session['payload'] = form
         return session
 
@@ -290,8 +297,9 @@ class AdHocMixin:
             return session
         try:
             self.dbCurTT.execute(
-                "SELECT posfilter, negfilter, short, mute FROM subscribers "
-                "WHERE feedname = %s AND jid = %s", (feedname, fromjid))
+                "SELECT posfilter, negfilter, short, mute, priority "
+                "FROM subscribers WHERE feedname = %s AND jid = %s",
+                (feedname, fromjid))
             row = self.dbCurTT.fetchone()
         except Exception:
             row = None
@@ -313,6 +321,10 @@ class AdHocMixin:
             short.add_option(label=l, value=str(v))
         form.add_field('mute', 'boolean',
                        label='Muted (do not receive news)', value=bool(row[3]))
+        priority = form.add_field('priority', 'list-single',
+                                  label='News priority', value=str(row[4]))
+        for v, l in [(1, 'Low'), (2, 'Normal'), (3, 'High')]:
+            priority.add_option(label=l, value=str(v))
         session['payload'] = form
         session['next'] = self.adhoc_edit_sub_apply
         session['allow_complete'] = True
@@ -334,11 +346,18 @@ class AdHocMixin:
         if short not in (0, 1, 2, 3):
             short = 0
         try:
+            priority = int(self._field_value(form, 'priority'))
+        except (TypeError, ValueError):
+            priority = 2
+        if priority not in (1, 2, 3):
+            priority = 2
+        try:
             self.dbCurTT.execute(
                 "UPDATE subscribers SET posfilter = %s, negfilter = %s, "
-                "short = %s, mute = %s WHERE feedname = %s AND jid = %s",
+                "short = %s, mute = %s, priority = %s "
+                "WHERE feedname = %s AND jid = %s",
                 (posfilter or None, negfilter or None, short,
-                 int(bool(mute)), feedname, fromjid))
+                 int(bool(mute)), priority, feedname, fromjid))
             self.dbCurTT.commit()
         except Exception as msg:
             session['notes'] = [('error', 'Failed to save: %s' % msg)]

@@ -145,6 +145,10 @@ class MessageMixin:
             msgstr += "  * Use setshort 1 for 'Title only' mode.\n  * Use setshort 2 for '1st sentence mode'.\n  * Use setshort 3 for '1st paragraph' mode.\n"
             msgstr += "* showshort or ?... [NAME] - show maximum message size for feed NAME (or this feed)\n\n"
 
+            msgstr += "* setprio or =^ N - set news priority for this feed, where N is 1, 2 or 3.\n"
+            msgstr += "  * Priority 1 is low, 2 is normal (default), 3 is high. Low and high priorities add an Urgency header (XEP-0131) to news messages.\n"
+            msgstr += "* showprio or ?^ [NAME] - show news priority for feed NAME (or this feed)\n\n"
+
             msgstr += "* hide or *** [NAME] - make feed NAME (or this feed) private\n"
             msgstr += "* unhide or +++ [NAME] - make feed NAME (or this feed) public\n\n"
 
@@ -381,6 +385,43 @@ class MessageMixin:
                 elif msg == '3':
                     msg = 'Only 1st paragraph'
                 self.sendmsg(tojid, fromjid, msg)
+
+        elif (bodyp[0] == 'setprio' or bodyp[0] == '=^') and len(bodyp) == 2:
+            if feedname is not None and bodyp[1].isdigit() and \
+                    int(bodyp[1]) in (1, 2, 3):
+                self.dbCurTT.execute("UPDATE subscribers SET priority = %s "
+                                     "WHERE feedname = %s AND jid = %s",
+                                     (int(bodyp[1]), feedname, fromjid,))
+                self.dbCurTT.commit()
+                level = {1: 'low', 2: 'normal', 3: 'high'}[int(bodyp[1])]
+                self.sendmsg(tojid, fromjid, "News priority for " + feedname +
+                             " is set to " + str(bodyp[1]) + " (" + level + ")")
+            elif feedname is not None and not bodyp[1].isdigit():
+                self.sendmsg(tojid, fromjid, "Priority must be a number: "
+                             "1 (low), 2 (normal), 3 (high)")
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed")
+        elif bodyp[0] == 'showprio' or bodyp[0] == '?^':
+            if len(bodyp) > 1:
+                feedname = bodyp[1]
+            if feedname is not None:
+                self.dbCurTT.execute("SET SESSION TRANSACTION ISOLATION "
+                                     "LEVEL READ COMMITTED")
+                self.dbCurTT.execute("SELECT priority FROM subscribers "
+                                     "WHERE feedname = %s AND jid = %s",
+                                     (feedname, fromjid,))
+                mypriority = self.dbCurTT.fetchone()
+                if mypriority:
+                    level = {1: 'low', 2: 'normal', 3: 'high'}.get(
+                        int(mypriority[0]), 'normal')
+                    self.sendmsg(tojid, fromjid, "News priority for " +
+                                 feedname + " is " + str(mypriority[0]) +
+                                 " (" + level + ")")
+                else:
+                    self.sendmsg(tojid, fromjid, "Not subscribed to " +
+                                 feedname)
+            else:
+                self.sendmsg(tojid, fromjid, "Can't find this feed")
 
         elif (bodyp[0] == 'hide' or bodyp[0] == '***') and len(bodyp) < 3:
             if len(bodyp) == 2:

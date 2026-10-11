@@ -19,11 +19,29 @@ Use Code Brain MCP first for substantive tasks in this project.
 `AGENTS.md` и `SPEC.md` всегда поддерживаются в актуальном состоянии при
 изменениях в проекте. Все изменения коммитятся в локальный git.
 
+## Правило коммитов
+
+Коммиты делаются от имени **opencode** с указанием модели, которой выполнены
+правки, например `opencode (Big Pickle)`. Имя автора и прежний email проекта
+задаются явно, так как глобальная git-identity не настроена:
+
+```bash
+git -c user.name="opencode (Big Pickle)" -c user.email="rain@gmx.tm" commit -m "..."
+```
+
+В сообщении коммита в конце указывается модель, сделавшая правки, например:
+
+```
+<краткое описание>
+
+Model: Big Pickle
+```
+
 ## Обзор
 
 **JRSS** — XMPP-компонент (транспорт), доставляющий RSS-ленты пользователям Jabber в виде отдельных ботов. Каждая лента становится JID в ростере (`feedname@transport.domain`), а новые статьи приходят как сообщения в чат.
 
-- **Версия**: 2.1.1
+- **Версия**: 2.2.0
 - **Python**: 3.9+ (требуется `asyncio.to_thread`)
 - **XMPP-библиотека**: slixmpp 1.10+
 - **БД**: MySQL / MariaDB через PyMySQL
@@ -120,11 +138,15 @@ Transport наследует `ComponentXMPP` и все 4 миксина чере
 | `feeds`        | feedname | Зарегистрированные RSS-ленты                  |
 | `subscribers`  | id       | Подписки пользователей на ленты               |
 | `sent`         | id       | Архив отправленных статей (для дедупликации)  |
-| `schema_version`| version | Текущая версия схемы (2)                     |
+| `schema_version`| version | Текущая версия схемы (3)                     |
 
 ### Авто-миграция
 
-`DB.ensure_schema()` вызывается при каждом подключении. Создаёт отсутствующие таблицы и применяет ALTER-запросы при изменении версии схемы. Внешний SQL-файл не требуется.
+`DB.ensure_schema()` вызывается при каждом подключении. Создаёт отсутствующие таблицы и применяет ALTER-запросы при изменении версии схемы. Внешний SQL-файл не требуется. Текущая версия схемы — 3 (в `subscribers` добавлена колонка `priority INT NOT NULL DEFAULT 2`).
+
+### Подписки и приоритет
+
+В таблице `subscribers` (колонки `jid, feedname, posfilter, negfilter, short, mute, priority`) колонка `priority` задаёт приоритет новостей для подписки: 1 — низкий, 2 — обычный (по умолчанию), 3 — высокий. Управление: диалоговые команды `setprio`/`=^` и `showprio`/`?^`, а также Ad-Hoc команда ленты «Edit subscription». Для приоритетов 1 и 3 к сообщениям с новостями добавляется заголовок `Urgency` (XEP-0131 Message Headers) со значением `low`/`high`; для приоритета 2 заголовок не добавляется.
 
 ## Поток данных: RSS → XMPP
 
@@ -137,8 +159,8 @@ update_loop() [каждые 15 сек]
           2. feedparser.parse(url)
           3. Для каждой статьи (reverse = oldest first):
               a. isSent() — проверка дедупликации
-              b. format_news_item() — фильтры, short-режим, формат
-              c. sendmsg() → XMPP chat message подписчику
+              b. format_news_item() — фильтры, short-режим, формат; возвращает (jid, text, priority)
+              c. sendmsg() → XMPP chat message подписчику (+ Urgency для priority 1/3)
               d. INSERT INTO sent (дедупликация)
           4. Расчёт адаптивного интервала: 3600 / hourly_count
           5. botstatus() → рассылка свежего presence (show/status) ВСЕМ подписчикам

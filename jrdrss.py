@@ -18,6 +18,7 @@
 import asyncio
 import sys
 import time
+from xml.etree import ElementTree as ET
 
 import feedparser
 from pymysql.err import IntegrityError as MySQLIntegrityError
@@ -143,10 +144,19 @@ class Transport(ComponentXMPP, FeedMixin, MessageMixin, ServiceMixin,
     def isFeedUrlRegistered(self, furl):
         return any(f[1] == furl for f in self.dbfeeds)
 
-    def sendmsg(self, fromjid, tojid, msg):
+    def sendmsg(self, fromjid, tojid, msg, priority=2):
         fromjid = str(fromjid) + '/rss'
-        self._send(self.make_message(mto=tojid, mbody=msg,
-                                     mfrom=JID(fromjid), mtype='chat'))
+        message = self.make_message(mto=tojid, mbody=msg,
+                                    mfrom=JID(fromjid), mtype='chat')
+        if priority in (1, 3):
+            urgency = 'low' if priority == 1 else 'high'
+            headers = ET.Element('{http://jabber.org/protocol/shim}headers')
+            header = ET.SubElement(headers,
+                                   '{http://jabber.org/protocol/shim}header',
+                                   {'name': 'Urgency'})
+            header.text = urgency
+            message.append(headers)
+        self._send(message)
 
     def send_feed_presence(self, feedname, tojid, ptype='available',
                            show=None, status=None):

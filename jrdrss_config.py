@@ -10,7 +10,7 @@ import os
 import socket
 import xml.dom.minidom
 
-programmVersion = "2.1.1"
+programmVersion = "2.2.0"
 
 # Globals filled by load_config():  (for import by other modules)
 DB_HOST = "127.0.0.1"

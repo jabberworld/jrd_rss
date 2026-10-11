@@ -56,9 +56,10 @@ def clean_summary(summary):
 def format_news_item(i, summary, jids):
     """Build message text for each subscriber row.
 
-    jids rows: (jid, posfilter, negfilter, short[, mute]) - the 5-field form
-    is only used when called from the regular update cycle.
-    Returns a list of (bare_jid, text) tuples.
+    jids rows: (jid, posfilter, negfilter, short[, mute[, priority]]) - the
+    5-field form is used by the selftest, the 6-field form by the regular
+    update cycle. Calls from the dialog (``1..20``) pass 4 fields.
+    Returns a list of (bare_jid, text, priority) tuples.
     """
     out = []
     title = i.get('title') or ''
@@ -92,7 +93,8 @@ def format_news_item(i, summary, jids):
         if i.get('title') is not None:
             ttl = '*' + i['title'] + '*'
         text = ttl + '\nLink: ' + str(i.get('link')) + author + body
-        out.append((ii[0], text))
+        priority = ii[5] if len(ii) >= 6 else 2
+        out.append((ii[0], text, priority))
     return out
 
 
@@ -167,8 +169,9 @@ class FeedMixin:
             self.new[feedname] = 0
             self.lasthournew[feedname] = 0
 
-            self.dbCurUT.execute("SELECT jid, posfilter, negfilter, short, mute "
-                                 "FROM subscribers WHERE feedname = %s", (feedname,))
+            self.dbCurUT.execute("SELECT jid, posfilter, negfilter, short, "
+                                 "mute, priority FROM subscribers WHERE "
+                                 "feedname = %s", (feedname,))
             jids = self.dbCurUT.fetchall()
             if len(jids) == 0:
                 continue
@@ -283,5 +286,6 @@ class FeedMixin:
             if 'yandex_full-text' in i and summary == '':
                 summary = i.get('yandex_full-text')
             summary = clean_summary(summary)
-        for bare_jid, text in format_news_item(i, summary, jids):
-            self.sendmsg(feedname + '@' + self.name, bare_jid, text)
+        for bare_jid, text, priority in format_news_item(i, summary, jids):
+            self.sendmsg(feedname + '@' + self.name, bare_jid, text,
+                         priority=priority)
