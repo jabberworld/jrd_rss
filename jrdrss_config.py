@@ -10,7 +10,7 @@ import os
 import socket
 import xml.dom.minidom
 
-programmVersion = "2.2.2"
+programmVersion = "2.2.3"
 
 # Globals filled by load_config():  (for import by other modules)
 DB_HOST = "127.0.0.1"
@@ -29,6 +29,21 @@ ICONLOGO = "0"
 SENTSIZE = "3"
 
 admins = []
+
+# XEP-0439 Quick Response buttons shown alongside the help output.
+# ``value`` is put into the message body by the client when a button is
+# pressed, so it must be a valid command (it runs against the current feed).
+# Labels must be unique within a single message.
+QUICK_RESPONSE_NS = 'urn:xmpp:tmp:quick-response'
+QUICK_RESPONSES = [
+    ('showupd', '\U0001F550 Update interval'),
+    ('showtags', '# Tags'),
+    ('showadap', '\u231B Real interval'),
+    ('hide', '\U0001F512 Hide'),
+    ('unhide', '\U0001F513 Unhide'),
+    ('mute', '\U0001F507 Mute'),
+    ('unmute', '\U0001F50A Unmute'),
+]
 
 
 def find_config():

@@ -29,7 +29,7 @@ from slixmpp import StanzaPath
 
 from jrdrss_config import (NAME, PASSWORD, HOST, PORT,
                            ADAPTIVE, REGALLOW, ICONLOGO, SENTSIZE,
-                           admins, rsslogo)
+                           admins, rsslogo, QUICK_RESPONSE_NS)
 from jrdrss_db import DB
 from jrdrss_feed import FeedMixin, clean_summary, format_news_item, SAMPLE_FEED
 from jrdrss_dialog import MessageMixin
@@ -144,7 +144,7 @@ class Transport(ComponentXMPP, FeedMixin, MessageMixin, ServiceMixin,
     def isFeedUrlRegistered(self, furl):
         return any(f[1] == furl for f in self.dbfeeds)
 
-    def sendmsg(self, fromjid, tojid, msg, priority=2):
+    def sendmsg(self, fromjid, tojid, msg, priority=2, responses=None):
         fromjid = str(fromjid) + '/rss'
         message = self.make_message(mto=tojid, mbody=msg,
                                     mfrom=JID(fromjid), mtype='chat')
@@ -156,6 +156,11 @@ class Transport(ComponentXMPP, FeedMixin, MessageMixin, ServiceMixin,
                                    {'name': 'Urgency'})
             header.text = urgency
             message.append(headers)
+        if responses:
+            for value, label in responses:
+                message.append(ET.Element(
+                    '{%s}response' % QUICK_RESPONSE_NS,
+                    {'value': value, 'label': label}))
         self._send(message)
 
     def send_feed_presence(self, feedname, tojid, ptype='available',

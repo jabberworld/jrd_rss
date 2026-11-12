@@ -84,7 +84,7 @@
 - Устанавливает глобальный таймаут сокета: `socket.setdefaulttimeout(10)`
 - Если `ICONLOGO=1`, импортирует `PIL.Image` и `lxml.html`
 - Содержит base64-кодированный PNG RSS-иконки (`rsslogo`) как дефолтное vCard-фото
-- Версия: `programmVersion = "2.2.2"`
+- Версия: `programmVersion = "2.2.3"`
 
 ## 5. База данных
 
@@ -544,7 +544,7 @@ ComponentXMPP(NAME, PASSWORD, HOST, PORT, plugin_whitelist=['xep_0030', 'xep_005
 <iq type="result">
   <query xmlns="jabber:iq:version">
     <name>Jabber RSS Transport</name>
-    <version>2.2.2</version>
+    <version>2.2.3</version>
     <os>Linux</os>
   </query>
 </iq>
@@ -627,6 +627,26 @@ Link: <url> (by <author>)
 ```
 
 Где `<body>` — `clean_summary(summary)`, обрезанный по `short`-режиму подписчика.
+
+### XEP-0439 Quick Response (кнопки в справке)
+
+При выводе `help` к сообщению добавляются элементы `<response>` в namespace
+`urn:xmpp:tmp:quick-response`: `value` — команда (попадёт в `<body>` при
+нажатии), `label` — emoji + подпись (label уникальны в пределах сообщения).
+
+| value    | label                 |
+|----------|-----------------------|
+| `showupd`| `🕐 Update interval`  |
+| `showtags`| `# Tags`             |
+| `showadap`| `⌛ Real interval`   |
+| `hide`   | `🔒 Hide`             |
+| `unhide` | `🔓 Unhide`           |
+| `mute`   | `🔇 Mute`             |
+| `unmute` | `🔊 Unmute`           |
+
+При выборе клиент отправляет обычное сообщение с `<body>` = `value`; оно
+обрабатывается штатным диспетчером как команда для текущей ленты. Клиенты без
+поддержки XEP-0439 просто видят текст справки с перечнем команд.
 
 ## 8. Обработка лент
 
@@ -938,6 +958,7 @@ WantedBy=multi-user.target
 
 | Версия | Основные изменения |
 |--------|--------------------|
+| 2.2.3  | XEP-0439 Quick Response: кнопки быстрых команд (showupd/showtags/showadap/hide/unhide/mute/unmute) в выводе `help` |
 | 2.2.2  | Ad-Hoc «My subscription»: «Message size» и «News priority» показаны селекторами, «Muted» — галочкой (как в «Edit subscription») |
 | 2.2.1  | Ручная выдача последних статей (`1..20`) учитывает приоритет подписки (Urgency для low/high) |
 | 2.2.0  | Приоритет новостей для подписки (setprio/showprio, Ad-Hoc «Edit subscription»), XEP-0131 Urgency для low/high, схема v3 |

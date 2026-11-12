@@ -10,6 +10,8 @@ import urllib.parse
 import feedparser
 from pymysql.err import IntegrityError as MySQLIntegrityError
 
+from jrdrss_config import QUICK_RESPONSES
+
 
 class MessageMixin:
 
@@ -169,7 +171,7 @@ class MessageMixin:
                 msgstr += "* purgeall [NAME] - forget about all sent items for feed NAME (or this feed)\n\n"
                 msgstr += "* showall - dump all registered feeds\n\n"
                 msgstr += "* + NAME URL INTERVAL DESCRIPTION [SETTAGS: TAG1,TAG2,TAG3] - add new feed to database"
-            self.sendmsg(tojid, fromjid, msgstr)
+            self.sendmsg(tojid, fromjid, msgstr, responses=QUICK_RESPONSES)
 
         elif bodyp[0] == 'showmyprivate' or bodyp[0] == '?***':
             myprivate = ''

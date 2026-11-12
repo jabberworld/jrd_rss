@@ -41,7 +41,7 @@ Model: Big Pickle
 
 **JRSS** — XMPP-компонент (транспорт), доставляющий RSS-ленты пользователям Jabber в виде отдельных ботов. Каждая лента становится JID в ростере (`feedname@transport.domain`), а новые статьи приходят как сообщения в чат.
 
-- **Версия**: 2.2.2
+- **Версия**: 2.2.3
 - **Python**: 3.9+ (требуется `asyncio.to_thread`)
 - **XMPP-библиотека**: slixmpp 1.10+
 - **БД**: MySQL / MariaDB через PyMySQL
@@ -147,6 +147,10 @@ Transport наследует `ComponentXMPP` и все 4 миксина чере
 ### Подписки и приоритет
 
 В таблице `subscribers` (колонки `jid, feedname, posfilter, negfilter, short, mute, priority`) колонка `priority` задаёт приоритет новостей для подписки: 1 — низкий, 2 — обычный (по умолчанию), 3 — высокий. Управление: диалоговые команды `setprio`/`=^` и `showprio`/`?^`, а также Ad-Hoc команда ленты «Edit subscription». Для приоритетов 1 и 3 к сообщениям с новостями добавляется заголовок `Urgency` (XEP-0131 Message Headers) со значением `low`/`high`; для приоритета 2 заголовок не добавляется. Заголовок добавляется и при ручной выдаче последних статей командой `1..20` (она тоже учитывает приоритет подписки).
+
+### Quick Response в справке (XEP-0439)
+
+При выводе `help` к сообщению добавляются кнопки `<response>` (namespace `urn:xmpp:tmp:quick-response`): `value` — текст команды, `label` — emoji + подпись. Кнопки: `showupd` (🕐 Update interval), `showtags` (# Tags), `showadap` (⌛ Real interval), `hide` (🔒 Hide), `unhide` (🔓 Unhide), `mute` (🔇 Mute), `unmute` (🔊 Unmute). Список задаётся в `QUICK_RESPONSES` (`jrdrss_config.py`); при нажатии клиент шлёт обычное `<body>` с `value`, которое обрабатывается штатным диспетчером как команда для текущей ленты.
 
 ## Поток данных: RSS → XMPP
 
